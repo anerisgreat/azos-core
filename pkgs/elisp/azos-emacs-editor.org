@@ -1,0 +1,246 @@
+#+title: Aner's Emacs Editor Configuration
+#+property: header-args :results silent
+
+* Base dev
+
+** Require
+
+#+begin_src emacs-lisp
+(require 'azos-emacs-base)
+#+end_src
+
+* Editor modes
+
+** Pandoc
+
+Pandoc mode lets us export different formats to PDF.
+
+Added for use with markdown.
+
+Binding to startup is 'C-c /'
+
+#+begin_src emacs-lisp
+(use-package pandoc-mode
+  :hook
+  (markdown-mode . pandoc-mode))
+#+end_src
+
+** Graphviz
+
+#+begin_src emacs-lisp
+(use-package graphviz-dot-mode)
+#+end_src
+
+** Markdown
+
+Based on [[https://www.reddit.com/r/emacs/comments/u5owr4/how_to_enable_variablepitchmode_for_markdownmode/][this]] post
+detailing variable pitch.
+
+We default to github-flavored markdown and show it as variable pitch.
+
+#+begin_src emacs-lisp
+(use-package markdown-mode
+  :mode (("\\.md$" . gfm-mode)
+         ("\\.mkd$" . gfm-mode))
+  :hook (gfm-mode . variable-pitch-mode)
+  :diminish markdown-live-preview-mode
+  :config
+  (when (bound-and-true-p lsp-mode)
+    (variable-pitch-mode -1))
+  (set-face-attribute 'markdown-pre-face nil
+    :background "LemonChiffon1" :extend t)
+  )
+#+end_src
+
+Let's add a TOC
+
+#+begin_src emacs-lisp
+(use-package markdown-toc)
+#+end_src
+
+* ORG
+
+** PDF exporting
+
+#+begin_src emacs-lisp
+(setq org-latex-listings 'minted
+      org-export-babel-evaluate nil
+      org-latex-pdf-process
+      (list (concat "latexmk -xelatex -shell-escape -interaction=nonstopmode "
+                    "-output-directory=%o %f ; latexmk -c %f")))
+
+(require 'ox-latex)
+(unless (boundp 'org-latex-classes)
+  (setq org-latex-classes nil))
+#+end_src
+
+This code removes unecessary files after each export
+
+#+begin_src emacs-lisp
+(add-to-list 'org-latex-logfiles-extensions "tex")
+#+end_src
+
+Creating classes
+
+#+begin_src emacs-lisp
+(defvar anerenv/latex-class-common-header
+  "[DEFAULT-PACKAGES]
+\\usepackage{polyglossia}
+\\usepackage[cache=false]{minted}
+\\usepackage{xcolor}
+\\usepackage{amsfonts}
+\\usepackage{transparent}
+\\usepackage{amsmath}
+\\definecolor{codebg}{rgb}{0.95,0.95,0.95}
+\\setdefaultlanguage{english}
+\\setlength{\\parindent}{0in}
+
+\\DeclareMathOperator*{\\argmax}{arg\\,max}
+\\DeclareMathOperator*{\\argmin}{arg\\,min}
+\\newfontfamily\\hebrewfont{LiberationSans}[Script=Hebrew]
+\\newfontfamily\\hebrewfonttt{LiberationSans}[Script=Hebrew]
+\\newfontfamily\\hebrewfontsf{LiberationSans}[Script=Hebrew]
+\\setotherlanguage{hebrew}
+" "Default common class header")
+
+(setq org-latex-classes
+     (list (list "article"
+(concat "\\documentclass{article}
+" anerenv/latex-class-common-header
+"\\setminted{
+    bgcolor=codebg,
+    breaklines=true,
+    mathescape,
+    fontsize=\\scriptsize,
+    linenos=false,
+}
+")
+        '("\\section{%s}" . "\\section*{%s}")
+        '("\\subsection{%s}" . "\\subsection*{%s}")
+        '("\\subsubsection{%s}" . "\\subsubsection*{%s}")
+        '("\\paragraph{%s}" . "\\paragraph*{%s}")
+        '("\\subparagraph{%s}" . "\\subparagraph*{%s}"))
+    (list "beamer"
+(concat "\\documentclass{beamer}
+" anerenv/latex-class-common-header
+"\\setminted{
+    bgcolor={},
+    breaklines=true,
+    mathescape,
+    fontsize=\\scriptsize,
+    linenos=false,
+}
+")
+        '("\\section{%s}" . "\\section*{%s}")
+        '("\\subsection{%s}" . "\\subsection*{%s}")
+        '("\\subsubsection{%s}" . "\\subsubsection*{%s}")
+        '("\\paragraph{%s}" . "\\paragraph*{%s}")
+        '("\\subparagraph{%s}" . "\\subparagraph*{%s}")))
+     )
+#+end_src
+
+This should render Hebrew text.
+
+#+begin_export latex
+\begin{hebrew}
+#+end_export
+זה אמור לעבוד
+#+begin_export latex
+\end{hebrew}
+#+end_export
+
+** DOCX exporting
+
+Taken from https://www.reddit.com/r/emacs/comments/zjv1gj/org_files_to_docx/
+
+#+begin_src emacs-lisp
+(defun anerenv/org/export-docx-with-pandoc ()
+  "Use Pandoc to convert .org to .docx.
+Comments:
+- The `-N' flag numbers the headers lines.
+- Use the `--from org' flag to have this function work on files
+  that are in Org syntax but do not have a .org extension"
+  (interactive)
+  (message "exporting .org to .docx")
+  (shell-command
+   (concat "pandoc -N --from org " (buffer-file-name)
+           " -o "
+           (file-name-sans-extension (buffer-file-name))
+           (format-time-string "-%Y-%m-%d-%H%M%S") ".docx")))
+#+end_src
+
+** Latex previews
+
+We don't want to create ltximg directories all over the place.
+Let's store all ltximg previews in tmp directory.
+
+Latex scaling from
+
+https://karthinks.com/software/scaling-latex-previews-in-emacs/
+
+#+begin_src emacs-lisp
+(setq org-format-latex-header
+ "\\documentclass{article}
+\\usepackage[usenames]{color}
+[PACKAGES]
+[DEFAULT-PACKAGES]
+\\pagestyle{empty}             % do not remove
+% The settings below are copied from fullpage.sty
+\\setlength{\\textwidth}{\\paperwidth}
+\\addtolength{\\textwidth}{-3cm}
+\\setlength{\\oddsidemargin}{1.5cm}
+\\addtolength{\\oddsidemargin}{-2.54cm}
+\\setlength{\\evensidemargin}{\\oddsidemargin}
+\\setlength{\\textheight}{\\paperheight}
+\\addtolength{\\textheight}{-\\headheight}
+\\addtolength{\\textheight}{-\\headsep}
+\\addtolength{\\textheight}{-\\footskip}
+\\addtolength{\\textheight}{-3cm}
+\\setlength{\\topmargin}{1.5cm}
+\\addtolength{\\topmargin}{-2.54cm}
+\\DeclareMathOperator*{\\argmax}{arg\\,max}
+\\DeclareMathOperator*{\\argmin}{arg\\,min}"
+ )
+
+(setq org-preview-latex-image-directory (concat user-emacs-directory "ltximg/"))
+
+(setq org-latex-create-formula-image-program 'dvisvgm)
+
+(setq org-format-latex-options (plist-put org-format-latex-options :scale 1))
+#+end_src
+
+** Presentation
+
+#+begin_src emacs-lisp
+(use-package org-present
+  :config
+    (add-hook 'org-present-mode-hook (lambda ()
+            (evil-emacs-state)
+            (blink-cursor-mode 0)
+            (org-present-big)
+            (org-display-inline-images)
+            (org-present-read-only)
+            (setq-local global-hl-line-mode nil)
+            (org-present-hide-cursor)
+            (olivetti-mode 1)
+            (display-line-numbers-mode 0)))
+
+    (add-hook 'org-present-mode-quit-hook (lambda ()
+            (org-present-small)
+            (blink-cursor-mode 1)
+            (org-remove-inline-images)
+            (org-present-show-cursor)
+            (org-present-read-write)
+            (evil-normal-state)
+            (setq-local global-hl-line-mode 1)
+            (olivetti-mode 0)
+            (display-line-numbers-mode 1)))
+)
+#+end_src
+
+* Provide
+
+#+begin_src emacs-lisp
+(provide 'azos-emacs-editor)
+(add-hook 'after-init-hook (lambda () (require 'azos-emacs-editor)))
+#+end_src

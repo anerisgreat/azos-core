@@ -1,0 +1,165 @@
+#+title: Aner's Emacs Development Configuration
+#+property: header-args :results silent
+
+* Base dev
+
+** Require
+
+#+begin_src emacs-lisp
+(require 'azos-emacs-base)
+#+end_src
+
+** Flycheck
+
+Flycheck is for syntax checking. Mode-specific configs in their relevant sections.
+
+#+begin_src emacs-lisp
+(use-package flycheck
+  :config
+    (global-flycheck-mode 1)
+)
+#+end_src
+
+* Dev modes
+** Irony-mode
+
+Must work on this. While it does work, can get slow and for weird projects can
+show errors.
+
+Namespace indent disabling based on:
+https://stackoverflow.com/questions/13825188/suppress-c-namespace-indentation-in-emacs
+
+#+begin_src emacs-lisp
+;; == irony-mode ==
+(use-package irony
+  :ensure t
+  :defer t
+  :init
+  (add-hook 'c++-mode-hook 'irony-mode)
+  (add-hook 'c-mode-hook 'irony-mode)
+  (add-hook 'objc-mode-hook 'irony-mode)
+  :config
+  ;; replace the `completion-at-point' and `complete-symbol' bindings in
+  ;; irony-mode's buffers by irony-mode's function
+  (defun azos/irony-mode-hook ()
+    (define-key irony-mode-map [remap completion-at-point]
+      'irony-completion-at-point-async)
+    (define-key irony-mode-map [remap complete-symbol]
+      'irony-completion-at-point-async))
+  (add-hook 'irony-mode-hook 'azos/irony-mode-hook)
+  (add-hook 'irony-mode-hook 'irony-cdb-autosetup-compile-options)
+
+  (defconst azos/cc-style
+    '("gnu"
+        (c-offsets-alist . ((innamespace . [0])))
+        (c-basic-offset . 4)))
+
+  (c-add-style "azos/cc-style" azos/cc-style)
+  (add-hook 'irony-mode-hook (lambda () (c-set-style "azos/cc-style")))
+  )
+#+end_src
+
+Integration with flycheck
+
+#+begin_src emacs-lisp
+(use-package flycheck-irony
+  :after flycheck irony
+  :config
+    (add-hook 'flycheck-mode-hook #'flycheck-irony-setup)
+    (add-hook 'c++-mode-hook (lambda () (setq flycheck-checker 'irony)))
+)
+#+end_src
+
+** CMake
+
+#+begin_src emacs-lisp
+(use-package cmake-mode)
+#+end_src
+
+** YAML
+
+#+begin_src emacs-lisp
+(use-package yaml-mode)
+#+end_src
+
+** Nix
+
+#+begin_src emacs-lisp
+(use-package nix-mode)
+#+end_src
+
+** Python
+
+#+begin_src emacs-lisp
+(setq
+    ;; python-shell-interpreter "python3"
+    python-shell-completion-native-enable nil)
+
+(defun azos/python/set-fringes () "Sets fringes for python"
+       (setq left-fringe-width 10 right-fringe-width 0))
+
+(add-hook 'python-mode-hook 'azos/python/set-fringes)
+
+(use-package elpy
+  :ensure t
+  :defer t)
+  ;; :init
+  ;; (elpy-enable))
+
+(define-key azos/global-minor-mode/open-keymap
+  (kbd "r p") 'run-python)
+#+end_src
+
+*** org src block
+
+#+begin_src emacs-lisp
+(setq org-babel-python-command "python3")
+#+end_src
+
+** Rust
+
+#+begin_src emacs-lisp
+(use-package rust-mode)
+#+end_src
+
+** Jupyter (ein)
+
+#+begin_src emacs-lisp
+(use-package ein
+  :config
+    (setq ein:output-area-inlined-images t)
+    (add-hook 'ein:notebook-mode-hook (lambda () (progn
+        ;; (elpy-mode -1)
+        (define-key ein:notebook-mode-map (kbd "C-c C-k") nil)))))
+#+end_src
+
+** Python
+
+*** Python version for ORG
+
+#+begin_src emacs-lisp
+(require 'ob)
+(setq org-babel-python-command "python3")
+#+end_src
+
+* ORG
+
+** Async blocks
+
+#+begin_src emacs-lisp
+(use-package ob-async
+  :config
+    ;Setting command of async blocks to Python3
+    (add-hook 'ob-async-pre-execute-src-block-hook
+            '(lambda ()
+            (setq org-babel-python-command "python3")
+    ))
+)
+#+end_src
+
+* Provide
+
+#+begin_src emacs-lisp
+(provide 'azos-emacs-dev)
+(add-hook 'after-init-hook (lambda () (require 'azos-emacs-dev)))
+#+end_src

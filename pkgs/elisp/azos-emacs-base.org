@@ -1,0 +1,1327 @@
+#+title: Aner's Emacs Base Configuration
+#+property: header-args :results silent
+
+* Base setup
+** Bootstrapping
+
+#+begin_src emacs-lisp
+(setq
+    vc-follow-symlinks t ;Follow symlinks
+
+    ;Backups from https://www.emacswiki.org/emacs/BackupDirectory
+    backup-directory-alist `(("." . temporary-file-directory))
+    auto-save-file-name-transforms '((".*" temporary-file-directory t))
+    backup-by-copying t ;Always copy never link
+    delete-old-versions t ;Auto delete old backups
+    kept-new-versions 6 ;Number of versions to keep
+    kept-old-versions 2
+    version-control t ;Backups for files
+
+    ;Garbage collection
+    gc-cons-threshold 100000000
+
+    ;Set external cusotm file
+    custom-file (expand-file-name "custom.el" user-emacs-directory)
+)
+
+#+end_src
+
+Load custom file
+
+#+begin_src emacs-lisp
+(if (file-exists-p custom-file) (load custom-file))
+#+end_src
+
+** Utility functions
+
+*** CL
+
+CL is a base library that has a bunch of useful stuff, primarily for lists.
+We are using the built-in version, no need to pull from anywhere.
+This just makes sure the code is loaded early on for later use.
+
+#+begin_src emacs-lisp
+(require 'cl-lib)
+#+end_src
+
+*** Copy file name
+
+Defining a function to copy filename.
+
+#+begin_src emacs-lisp
+(defun azos/copy-file-name () (interactive)
+       (let ((fpath buffer-file-name))
+         (if fpath (kill-new fpath) (message "No current file!"))))
+#+end_src
+
+*** Font candidate
+
+#+begin_src emacs-lisp
+(defun azos/font-candidate (&rest fonts)
+    "Return existing font which first match."
+    (cl-find-if (lambda (f) (find-font (font-spec :name f))) fonts))
+#+end_src
+
+*** Regex match function
+
+#+begin_src emacs-lisp
+(defun azos/re-seq (regexp string)
+  "Get a list of all regexp matches in a string"
+  (save-match-data
+    (let ((pos 0)
+          matches)
+      (while (string-match regexp string pos)
+        (push (match-string 0 string) matches)
+        (setq pos (match-end 0)))
+      matches)))
+#+end_src
+
+** Keymap setup
+
+In this section global keybindings are defined using a global minor mode.
+
+First, utility functions that will be bound are defined.
+
+The first, =azos/set-window-width= is a helper function that resizes a window. Used because I wanted a function
+that resizes a window to 85 cols easily.
+
+The second, =azos/open-conf-file=,  opens the configuration file.
+
+#+begin_src emacs-lisp
+(defun azos/set-window-width (n)
+    (adjust-window-trailing-edge (selected-window) ( - n (window-width)) t))
+
+(defun azos/open-conf-file ()
+    (interactive)
+    (find-file (concat user-emacs-directory "config.org")))
+#+end_src
+
+Now let's define keybindings. To start, we'd like =M-o= to be available to us, so let's unbind it.
+
+#+begin_src emacs-lisp
+;Unbind face menu map
+(define-key global-map (kbd "M-o") nil)
+#+end_src
+
+This creates an "open keymap", a bunch of keybindings we'll use to open basic applications and files.
+This will be mapped to =M-o=, and things will be opened form this sub-menu.
+We'll start it with a binding to open the conf file with =M-o o= (MOO!)
+
+Setting of keybindings based on [[https://stackoverflow.com/questions/49853494/the-best-way-to-set-a-key-to-do-nothing][this]]
+
+#+begin_src emacs-lisp
+;We'll define a basic keymap and already load window-manip funcs
+(defvar azos/global-minor-mode/open-keymap
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "o") 'azos/open-conf-file)
+    map)
+  "global keymap for opening stuff on azos")
+#+end_src
+
+At this stage a minor-mode-map is defined with keybindings, and an accompanying minor-mode is added.
+
+#+begin_src emacs-lisp
+(defvar azos/global-minor-mode/keymap
+  (let ((map (make-sparse-keymap)))
+
+    ;Window movement and manipulation
+    (define-key map (kbd "M-h") 'windmove-left)
+    (define-key map (kbd "M-l") 'windmove-right)
+    (define-key map (kbd "M-k") 'windmove-up)
+    (define-key map (kbd "M-j") 'windmove-down)
+
+    (define-key map (kbd "M-<left>") 'windmove-left)
+    (define-key map (kbd "M-<right>") 'windmove-right)
+    (define-key map (kbd "M-<up>") 'windmove-up)
+    (define-key map (kbd "M-<down>") 'windmove-down)
+    (define-key map (kbd "M-d M-d") 'delete-window)
+    (define-key map (kbd "M-d D") 'kill-buffer-and-window)
+    (define-key map (kbd "M-\\") 'split-window-horizontally)
+    (define-key map (kbd "M-\-") 'split-window-vertically)
+    (define-key map (kbd "M-d R") (lambda () (interactive)
+                    (set-window-width 85)))
+    (define-key map (kbd "M-o") azos/global-minor-mode/open-keymap)
+    map)
+  "azos/global-minor-mode keymap.")
+
+(define-minor-mode azos/global-minor-mode
+  "A minor mode for azos global keymaps."
+  :init-value t
+  :lighter "azos"
+  :keymap azos/global-minor-mode/keymap)
+
+(azos/global-minor-mode 1)
+#+end_src
+
+This keymap will be referenced many times during this document at relevant points.
+
+Keymaps are included with relevant sections.
+
+** EVIL mode
+
+This section binds keys for changing window size. Done here because can only do after evil loads.
+
+#+begin_src emacs-lisp
+(setq evil-want-keybinding nil)
+
+(use-package evil
+  :init
+  (setq evil-want-C-i-jump nil)
+  :config
+  (require 'evil )
+  (evil-mode 1)
+
+  :bind
+  (:map azos/global-minor-mode/keymap
+        ("M-w h" . evil-window-decreace-width)
+        ("M-w l" . evil-window-increase-width)
+        ("M-w k" . evil-window-decrease-height)
+        ("M-w j" . evil-window-increase-height))
+)
+#+end_src
+
+Loading evil collection. Functions from this package will be referenced many times later in the configuration.
+
+#+begin_src emacs-lisp
+(use-package evil-collection
+  :config
+  (setq evil-collection-setup-minibuffer t)
+)
+#+end_src
+
+#+begin_src emacs-lisp
+(defvar azos/evil-color-normal "LightGoldenrod1")
+(defvar azos/evil-color-emacs "LightBlue1")
+(defvar azos/evil-color-insert "PaleGreen1")
+(defvar azos/evil-color-replace "LightPink")
+(defvar azos/evil-color-motion "LightCyan")
+(defvar azos/evil-color-visual "LightGray")
+(defvar azos/evil-color-operate "sandy brown")
+#+end_src
+
+** IVY
+
+Enabling IVY. Taken from [[https://github.com/abo-abo/swiper][their website]].
+
+Using ivy, hydra, counsel.
+
+#+begin_src emacs-lisp
+(use-package ivy
+  :custom
+    (ivy-use-virtual-buffers t)
+    (enable-recursive-minibuffers t)
+    (ivy-count-format "(%d/%d) ")
+  :config
+    (ivy-mode 1)
+)
+
+(use-package ivy-hydra
+  :after ivy)
+(use-package ivy-avy
+  :after ivy)
+(use-package counsel
+  :after ivy
+
+  :bind
+    (:map azos/global-minor-mode/keymap
+        ("M-i" . counsel-imenu)
+        ("M-b" . counsel-switch-buffer)
+        ("C-x C-f" . counsel-find-file))
+    (:map azos/global-minor-mode/open-keymap
+        ("l" . counsel-linux-app))
+)
+#+end_src
+
+Using swiper. Replacing evil search with swiper search.
+
+#+begin_src emacs-lisp
+(use-package swiper
+    :after ivy evil
+    :config
+    (setq evil-search-module 'swiper-isearch)
+
+    :bind
+    (:map azos/global-minor-mode/keymap
+        ("C-s" . swiper-isearch))
+)
+#+end_src
+
+Setting up keymaps
+
+#+begin_src emacs-lisp
+(evil-collection-ivy-setup)
+#+end_src
+
+** Assorted utility functions
+* UI
+** General
+*** Clean UI
+
+Disabling the toolbar, the splash-screen, the menu-bar and the scroll-bar
+
+#+begin_src emacs-lisp
+(menu-bar-mode -1)   ; no menu bar
+(when (display-graphic-p)
+    (tool-bar-mode -1)   ; no tool bar with icons
+    (scroll-bar-mode -1) ; no scroll bars
+    (set-fringe-mode 0))
+#+end_src
+
+*** Background color
+
+#+begin_src emacs-lisp
+(add-to-list 'default-frame-alist '(background-color . "LightYellow"))
+#+end_src
+
+*** Fringe color
+
+While we don't actually want fringes (almost at all), some frames use them.
+
+#+begin_src emacs-lisp
+;; (set-face-attribute 'fringe nil :background "LemonChiffon1")
+#+end_src
+
+*** Window dividers
+
+#+begin_src emacs-lisp
+(setq window-divider-default-bottom-width 1
+      window-divider-default-places 'bottom-only)
+
+(window-divider-mode 1)
+#+end_src
+
+*** Tab bar
+*** Base
+
+Prettification of tab bar. We only use tab-bar if the version is greater than 27.1.
+We also use this section to bind keys.
+
+#+begin_src emacs-lisp
+;; If version greater than 27.1
+
+(defun azos/new-tab-and-rename ()
+    "Created for back compatibility with emacs 27"
+    (interactive)
+    (progn
+        (tab-bar-new-tab)
+        (call-interactively 'tab-bar-rename-tab)))
+
+(if (version<= "27.1" emacs-version) (progn
+    (tab-bar-mode 1)
+
+    (set-face-attribute 'tab-bar nil
+                        :box t
+                        :background "LightYellow3"
+                        :foreground "DarkSlateGrey"
+                        :font "LiberationMono"
+                        :height 90)
+
+    (set-face-attribute 'tab-bar-tab nil
+                        :box '(:color "DarkSlateGrey" :line-width -2)
+                        :background "LightYellow3"
+                        :weight 'bold)
+
+    (set-face-attribute 'tab-bar-tab-inactive nil
+                        :background "LightYellow3"
+                        :inherit 'tab-bar)
+
+    (define-key azos/global-minor-mode/keymap
+        (kbd "M-<tab>") 'tab-next)
+    (define-key azos/global-minor-mode/keymap
+        (kbd "M-'") 'tab-previous)
+    (define-key azos/global-minor-mode/keymap
+        (kbd "M-t r") 'tab-bar-rename-tab)
+    (define-key azos/global-minor-mode/keymap
+        (kbd "M-t n") 'tab-next)
+    (define-key azos/global-minor-mode/keymap
+        (kbd "M-t p") 'tab-previous)
+    (define-key azos/global-minor-mode/keymap
+        (kbd "M-t x") 'tab-bar-close-tab)
+    (define-key azos/global-minor-mode/keymap
+        (kbd "M-t c") 'azos/new-tab-and-rename)
+    (setq tab-bar-close-button-show nil
+        tab-bar-new-button-show nil
+        tab-bar-separator (propertize " ● " 'face
+                                      (list :foreground "LightYellow1"
+                                            :box '(:color "DarkSlateGrey")))
+        )
+    (add-hook 'emacs-startup-hook (lambda () (tab-bar-rename-tab "home" 1)))
+))
+#+end_src
+
+*** Right Group Display
+
+#+begin_src emacs-lisp
+(defvar azos/tab-bar/right-update-group '()
+  "Functions needed to run to update tab bar")
+
+(defvar azos/tab-bar/right-group '()
+    "A list of items to be displayed on the right of the tab-bar")
+
+(defun azos/tab-bar/right-group-func ()
+  "Function that returns a string to be displayed on right of tab-bar"
+  (concat
+    tab-bar-separator
+    (mapconcat 'eval
+              (remove ""
+                      (mapcar 'funcall azos/tab-bar/right-group))
+              tab-bar-separator)
+    tab-bar-separator))
+
+(defun azos/tab-bar/update-func () "Function to update the tab bar"
+       (progn
+         (mapc 'funcall azos/tab-bar/right-update-group)
+         (force-mode-line-update)))
+
+(if (version<= "28.1" emacs-version) (progn
+    (setq tab-bar-format
+        '(
+        tab-bar-format-history
+        tab-bar-format-tabs
+        tab-bar-separator
+        tab-bar-format-add-tab
+        tab-bar-format-align-right
+        azos/tab-bar/right-group-func)
+        tab-bar-auto-width nil)
+    (define-key azos/global-minor-mode/keymap
+        (kbd "M-n") 'tab-switch)
+    ;; (if (member system-type '(gnu gnu/linux))
+    ;;     (azos/run-timer 'tab-timer 'azos/tab-bar/update-func 5))
+    ;; No auto-update, maybe some other way
+))
+#+end_src
+
+Let's define a clock for the tab bar
+
+#+begin_src emacs-lisp
+(defun azos/tab-bar/get-clock-string () "Get tab bar time string"
+       (propertize (format-time-string "%a, %b %d %H:%M")
+        'face '(:background "LightYellow3" :foreground "DarkSlateGrey")))
+
+(defun azos/tab-bar/enable-clock-display ()
+  "Enables clock display in tab bar"
+         (cl-pushnew 'azos/tab-bar/get-clock-string
+                     azos/tab-bar/right-group))
+#+end_src
+
+By default let's enable the clock display
+
+#+begin_src emacs-lisp
+(azos/tab-bar/enable-clock-display)
+#+end_src
+
+*** Tab bar addons
+**** Battery status in tab bar
+
+#+begin_src emacs-lisp
+(defun azos/bat/get-stats () "Gets battery statistics. First value returned
+is battery percentage, second one is t if charging"
+    (let* ((commandout (string-clean-whitespace (shell-command-to-string
+        "upower -i /org/freedesktop/UPower/devices/DisplayDevice"))))
+        (list
+        (string-to-number (progn
+            (string-match "\\(?:percentage\\:\s+\\)\\([0-9]+\\)" commandout)
+            (match-string 1 commandout)))
+        (progn
+                    (string-match "\\(?:state\\:\s+\\)\\([^\s]+\\)" commandout)
+                    (match-string 1 commandout)))
+            ))
+
+(defvar azos/bat/status-string nil "Holds battery string")
+
+(defun azos/bat/set-status-string () "Sets battery-string"
+       (let* ((bat-stats (azos/bat/get-stats))
+              (bat-charge-state (nth 1 bat-stats))
+              (bat-percentage-number
+                (if (string= bat-charge-state "fully-charged") 100
+                    (nth 0 bat-stats)))
+              (bat-color (if (<= bat-percentage-number 10) "red3"
+                          (if (<= bat-percentage-number 20) "DarkOrange"
+                            "DarkSlateGrey")))
+              (bat-weight (if (<= bat-percentage-number 20) 'bold 'normal))
+              (bat-charge-symbol (if (string= bat-charge-state "charging") "↑"
+                    (if (string= bat-charge-state "fully-charged") "◼" "↓"))))
+          (setq azos/bat/status-string
+             (concat
+                "⚡" bat-charge-symbol " "
+                (propertize (format "%3d" bat-percentage-number)
+                             'face (list :foreground bat-color
+                                    :box (list :color "DarkSlateGrey")))))))
+
+(defun azos/bat/get-status-string () "Get battery string"
+       (if azos/bat/status-string azos/bat/status-string ""))
+
+(defun azos/bat/enable-tab-display ()
+  "Enables battery display in tab bar"
+    (progn
+        (cl-pushnew 'azos/bat/get-status-string azos/tab-bar/right-group)
+        (cl-pushnew 'azos/bat/set-status-string azos/tab-bar/right-update-group)
+    ))
+#+end_src
+
+**** Network status in tab bar
+
+Code to check for internet connection:
+
+https://emacs.stackexchange.com/questions/7653/elisp-code-to-check-for-internet-connection
+
+#+begin_src emacs-lisp
+(defvar azos/network/status-string nil "Holds network status string")
+
+(defun azos/network/get-status-string () "Gets the network status string"
+       (if azos/network/status-string azos/network/status-string ""))
+
+(defun azos/network/set-status-string-sentinel (process event)
+    "Sets the network string based on proc run"
+    (setq azos/network/status-string
+            (concat
+                "↹ "
+                (if (= 0 (process-exit-status process))
+                    (propertize "✓" 'face
+                                (list :foreground "green3"
+                                    :background "LightYellow3"
+                                    :box (list :color "DarkSlateGrey")))
+                    (propertize "X" 'face
+                                (list :foreground "red3"
+                                    :background "LightYellow3"
+                                    :box (list :color "DarkSlateGrey")))))))
+
+(defun azos/network/start-test-proc () "Tests whether internet"
+       (interactive)
+    (set-process-sentinel
+        (start-process "wget" nil "wget" "--spider" "--timeout=1"
+                       "www.google.com") 'azos/network/set-status-string-sentinel))
+
+(defun azos/network/enable-tab-display ()
+  "Enables network display in tab bar"
+       (progn
+         (cl-pushnew 'azos/network/get-status-string
+                     azos/tab-bar/right-group)
+         (cl-pushnew 'azos/network/start-test-proc
+                     azos/tab-bar/right-update-group)
+         ))
+#+end_src
+
+*** Easy Prompt
+
+#+begin_src emacs-lisp
+(defalias 'yes-or-no-p 'y-or-n-p)
+#+end_src
+
+*** Minibuff
+
+#+begin_src emacs-lisp
+(add-hook 'minibuffer-setup-hook
+    (lambda ()
+        (make-local-variable 'face-remapping-alist)
+        (add-to-list 'face-remapping-alist
+                    '(default (:background "WhiteSmoke")))))
+#+end_src
+
+*** Bell
+
+Disable bell, who needs the bell?
+
+#+begin_src emacs-lisp
+(setq ring-bell-function (lambda () ()))
+#+end_src
+
+*** Olivetti
+
+Useful to have even if I rarely use it.
+
+#+begin_src emacs-lisp
+(use-package olivetti
+  :init
+  (setq olivetti-body-width 96))
+#+end_src
+
+*** Modeline
+
+Setting colors
+
+#+begin_src emacs-lisp
+(set-face-attribute 'mode-line nil :box nil :background "AliceBlue")
+(set-face-attribute 'mode-line-inactive nil :box nil :background "LightYellow3")
+#+end_src
+
+We use [[https://emacs.stackexchange.com/questions/5529/how-to-right-align-some-items-in-the-modeline][this stackoverflow page]] to make left\right aligned stuff.
+
+We use [[https://www.reddit.com/r/emacs/comments/4mhphb/spacemacs_how_to_limit_the_length_of_displayed/][this article]] to try and limit the mode name length.
+
+#+begin_src emacs-lisp
+(setq evil-normal-state-tag
+    (propertize " NORMAL  " 'face
+                (list :background azos/evil-color-normal))
+    evil-emacs-state-tag
+    (propertize " EMACS   " 'face
+                (list :background azos/evil-color-emacs))
+    evil-insert-state-tag
+    (propertize " INSERT  " 'face
+                (list :background azos/evil-color-insert))
+    evil-replace-state-tag
+    (propertize " REPLACE " 'face
+                (list :background azos/evil-color-replace))
+    evil-motion-state-tag
+    (propertize " MOTION  " 'face
+                (list :background azos/evil-color-motion))
+    evil-visual-state-tag
+    (propertize " VISUAL  " 'face
+                (list :background azos/evil-color-visual))
+    evil-operator-state-tag
+    (propertize " OPERATE " 'face
+                (list :background azos/evil-color-operate)))
+
+(defun azos/modeline/modeline-render (left right)
+  "Return a string of `window-width' length containing LEFT, and RIGHT
+ aligned respectively."
+  (let* ((available-width (- (window-width) (length left) 2)))
+    (format (format " %%s %%%ds " available-width) left right)))
+
+(setq-default mode-line-buffer-identification
+    (list -80 (propertized-buffer-identification "%12b")))
+
+(setq-default mode-line-format
+    '((:eval (azos/modeline/modeline-render
+        ;;Left
+        (concat
+            (propertize (format-mode-line "%b") 'face '((:foreground "maroon")))
+            (format-mode-line " (%m) "))
+        ;;Right
+        (concat
+            (format-mode-line "%5lL%4cC ")
+            evil-mode-line-tag)))))
+#+end_src
+
+*** Notifications
+
+#+begin_src emacs-lisp
+(require 'notifications)
+#+end_src
+
+*** Which-Key
+
+#+begin_src emacs-lisp
+(use-package which-key
+  :config
+    (which-key-mode))
+#+end_src
+
+** Text
+*** YASnippet
+
+Loading yasnippet. Useful for snippeting. Mode-specific snippets defined in relevant sections.
+
+#+begin_src emacs-lisp
+(use-package yasnippet
+  :config
+    (yas-global-mode 1)
+)
+#+end_src
+
+*** Text font
+
+This section configures the base fonts. We select fonts if available (have configurations for good defaults in
+Linux and Windows).
+
+Also setting default fixed-pitch and variable-pitch fonts.
+
+Setting font size to 10. The value to place is font-size * 10
+
+Font size 12 for variable pitch.
+
+The function =font-candidate= is from https://www.gnu.org/software/emacs/manual/html_mono/cl.html.
+
+#+begin_src emacs-lisp
+(let ((variable-font (azos/font-candidate
+                      "Liberation Serif" "Microsoft Sans Serif")))
+    (if variable-font
+        (set-face-attribute 'variable-pitch nil :font variable-font)))
+
+(let ((fixed-font (azos/font-candidate
+                   "Source Code Pro" "LiberationMono" "Consolas")))
+    (if fixed-font (progn
+        (set-face-attribute 'default nil :font fixed-font)
+        (set-face-attribute 'fixed-pitch nil :font fixed-font))))
+
+(set-face-attribute 'default nil :height 100)
+(set-face-attribute 'variable-pitch nil
+    :height 130
+    :weight 'normal
+    :width 'normal)
+
+(set-face-attribute 'fixed-pitch nil
+    :height 100
+    :weight 'normal
+    :width 'normal)
+
+(defun azos/default-variable-pitch ()
+    (face-remap-add-relative 'default '(:inherit 'variable-pitch)))
+#+end_src
+
+*** Line numbering
+
+We want line numbering, but only in modes where it makes sense.
+
+To do this, a custom minor-mode, =azos/global-linum-mode=, is created.
+This mode selectively activates linum-mode if the mode is not one of a selected exempt modes.
+These exempt modes are defined in =display-line-numbers-exempt-modes=.
+
+Taken from [[https://www.emacswiki.org/emacs/LineNumbers][this wiki entry]].
+
+#+begin_src emacs-lisp
+(use-package display-line-numbers
+    :init
+        (defcustom azos/display-line-numbers-exempt-modes
+            '(vterm-mode
+              eshell-mode
+              shell-mode
+              term-mode
+              ansi-term-mode
+              magit-mode
+              magit-diff-mode
+              notmuch-hello
+              pdf-view-mode)
+            "Major modes on which to disable the linum mode, exempts them."
+            :group 'display-line-numbers
+            :type 'list
+            :version "green")
+
+        (define-global-minor-mode azos/global-linum-mode
+            display-line-numbers-mode
+            (lambda () (if (and
+                (not (apply 'derived-mode-p
+                            azos/display-line-numbers-exempt-modes))
+                (not (minibufferp)))
+            (display-line-numbers-mode))))
+
+        (setq display-line-numbers-type 'visual
+            display-line-numbers-grow-only 1
+            display-line-numbers-width-start 1)
+
+    :config
+        (azos/global-linum-mode 1)
+        (set-face-attribute 'line-number nil
+            :family (face-attribute 'fixed-pitch :family))
+)
+#+end_src
+
+*** Line highlight
+
+Highlighting line with cursor.
+
+Modification done to use EVIL colors on highlighted line.
+
+#+begin_src emacs-lisp
+(global-hl-line-mode)
+(set-face-attribute 'hl-line nil :background azos/evil-color-emacs)
+
+(defface hl-line-normal
+  (list (list t (list :inherit 'hl-line :background  azos/evil-color-normal
+                      :extend t)))
+    "Highlight face for evil normal mode."
+    :group 'hl-line)
+
+(defface hl-line-insert
+  (list (list t (list :inherit 'hl-line :background  azos/evil-color-insert
+                      :extend t)))
+    "Highlight face for evil insert mode."
+    :group 'hl-line)
+
+(defface hl-line-emacs
+  (list (list t (list :inherit 'hl-line :background  azos/evil-color-emacs
+                      :extend t)))
+    "Highlight face for evil insert mode."
+    :group 'hl-line)
+
+(defface hl-line-replace
+  (list (list t (list :inherit 'hl-line :background  azos/evil-color-replace
+                      :extend t)))
+    "Highlight face for evil insert mode."
+    :group 'hl-line)
+
+(defface hl-line-motion
+  (list (list t (list :inherit 'hl-line :background  azos/evil-color-motion
+                      :extend t)))
+    "Highlight face for evil insert mode."
+    :group 'hl-line)
+
+(defface hl-line-visual
+  (list (list t (list :inherit 'hl-line :background  azos/evil-color-visual
+                      :extend t)))
+    "Highlight face for evil insert mode."
+    :group 'hl-line)
+
+(defface hl-line-operate
+  (list (list t (list :inherit 'hl-line :background  azos/evil-color-operate
+                      :extend t)))
+    "Highlight face for evil insert mode."
+    :group 'hl-line)
+
+(defun azos/hl-line-evil/set-hl-state (state-face)
+  "Refresh hl-line to be state-face"
+  (progn
+    (global-hl-line-unhighlight)
+    (setq-local hl-line-face state-face)
+    (global-hl-line-highlight)))
+#+end_src
+
+#+begin_src emacs-lisp
+(add-hook 'evil-insert-state-entry-hook
+          (lambda () (azos/hl-line-evil/set-hl-state 'hl-line-insert)))
+(add-hook 'evil-normal-state-entry-hook
+          (lambda () (azos/hl-line-evil/set-hl-state 'hl-line-normal)))
+(add-hook 'evil-emacs-state-entry-hook
+          (lambda () (azos/hl-line-evil/set-hl-state 'hl-line-emacs)))
+(add-hook 'evil-replace-state-entry-hook
+          (lambda () (azos/hl-line-evil/set-hl-state 'hl-line-replace)))
+(add-hook 'evil-motion-state-entry-hook
+          (lambda () (azos/hl-line-evil/set-hl-state 'hl-line-motion)))
+(add-hook 'evil-visual-state-entry-hook
+          (lambda () (azos/hl-line-evil/set-hl-state 'hl-line-visual)))
+(add-hook 'evil-operate-state-entry-hook
+          (lambda () (azos/hl-line-evil/set-hl-state 'hl-line-operate)))
+#+end_src
+
+*** Line wrap
+
+Don't want to have to scroll to see more chars.
+
+#+begin_src emacs-lisp
+(global-visual-line-mode t)
+#+end_src
+
+*** Parenthesis
+
+Highlight matching parenthesis
+
+#+begin_src emacs-lisp
+(show-paren-mode 1)
+#+end_src
+
+*** Tabs
+
+Using spaces instead of tabs, default offset is 4.
+
+#+begin_src emacs-lisp
+(setq-default indent-tabs-mode nil
+              tab-width 4
+              c-basic-offset 4
+              tab-always-indent 'complete)
+#+end_src
+
+*** BIDI and lang
+
+Setting up Hebrew as alternative input, using bidi mode so that every line is
+aligned left\right accordingly.
+
+#+begin_src emacs-lisp
+(setq-default default-input-method "hebrew"
+              bidi-display-reordering t
+              bidi-paragraph-direction 'nil)
+
+(defun azos/set-bidi-env ()
+    (setq bidi-paragraph-direction 'nil)
+)
+
+(define-key azos/global-minor-mode/keymap
+    (kbd "C-SPC") 'toggle-input-method)
+#+end_src
+
+*** Whitespace mode
+
+We define a custom global-whitespace-mode in order to enable it only on
+relevant modes.
+
+We check if the current mode doesn't derive from a set of blacklisted mode, the
+main culprit being terminal modes where whitespace occur naturally and are a
+pain to see all the time.
+
+#+begin_src emacs-lisp
+(setq-default whitespace-style
+      '(face tabs trailing tab-mark
+             lines-tail indentation))
+
+(defun azos/whitespace-mode-func ()
+  (interactive)
+    (if (derived-mode-p 'text-mode 'prog-mode 'org-mode)
+        (whitespace-mode 1) (whitespace-mode -1)))
+
+(add-hook 'after-change-major-mode-hook 'azos/whitespace-mode-func)
+#+end_src
+
+*** Commenter
+
+Quick keybindings to comment out regions.
+
+#+begin_src emacs-lisp
+(use-package evil-nerd-commenter
+  :config
+  (define-key evil-normal-state-map (kbd "C-;")
+    'evilnc-comment-or-uncomment-lines))
+#+end_src
+
+*** Company mode
+
+Auto completion framework.
+
+#+begin_src emacs-lisp
+(use-package company
+  :ensure t
+  :defer t
+  :init (add-hook 'after-init-hook 'global-company-mode)
+  :config
+  ;; (use-package company-irony :ensure t :defer t)
+  (setq
+        company-minimum-prefix-length   2
+        company-show-numbers            t
+        company-tooltip-limit           20
+        company-idle-delay              0.2
+  )
+  :bind ("C-;" . company-complete-common)
+  ;; :hook (irony-mode . company-mode)
+  )
+#+end_src
+
+*** Folding
+
+#+begin_src emacs-lisp
+(add-hook 'prog-mode-hook 'hs-minor-mode)
+#+end_src
+
+* Mode specific
+** Undo tree
+
+Loading =undo-tree= for undo/redo functionality with evil.
+
+Redo taken from https://github.com/syl20bnr/spacemacs/issues/14036
+
+#+begin_src emacs-lisp
+(use-package undo-tree
+  :after evil
+  :config
+    (evil-set-undo-system 'undo-tree)
+    (setq undo-tree-history-directory-alist
+        (list (cons "." (concat user-emacs-directory "undo-tree"))))
+    (global-undo-tree-mode 1)
+)
+#+end_src
+
+** Projectile
+
+Startup up projectile.
+
+A config line here disables modeline display because I don't want my modeline to be cluttered.
+
+Mapping modeline commands to =M-p= prefix. Also adding a shortcut to add project.
+
+#+begin_src emacs-lisp
+(use-package projectile
+  :config
+    (projectile-mode +1)
+    (setq projectile-mode-line-function (lambda () ""))
+  :bind
+    (:map projectile-command-map
+          ("a" . projectile-add-known-project)
+    )
+    (:map azos/global-minor-mode/keymap
+          ("M-p" . projectile-command-map))
+)
+#+end_src
+
+Ivy for projectile:
+Parts taken from [[https://emacs.stackexchange.com/questions/40787/display-corresponding-key-binding-of-command-during-m-x-completion][this post]] and [[https://emacs.stackexchange.com/questions/38841/counsel-m-x-always-shows][this post]] from StackOverflow.
+
+Helps with many functions to use counsel's/ivy's autocomplete with projectile.
+
+#+begin_src emacs-lisp
+(use-package counsel-projectile
+  :after counsel projectile
+  :config
+    (counsel-projectile-mode +1)
+    (setq projectile-completion-system 'ivy)
+    ;Making counsel start with empty regex
+    (when (commandp 'counsel-M-x)
+        (global-set-key [remap execute-extended-command] 'counsel-M-x))
+    (setcdr (assoc 'counsel-M-x ivy-initial-inputs-alist) "")
+)
+#+end_src
+
+** Tramp
+
+Ensuring tramp is loaded, and loading counsel-tramp for easy tramping.
+
+#+begin_src emacs-lisp
+(use-package tramp
+  :straight (:type built-in))
+
+(use-package counsel-tramp)
+#+end_src
+
+** Dired
+
+Need to autoload dired-x for dired-omit
+
+#+begin_src emacs-lisp
+;; (autoload 'dired-omit-mode "dired-x")
+(setq dired-omit-files "^\\...+$")
+(add-hook 'dired-mode-hook 'dired-omit-mode)
+(add-hook 'dired-mode-hook 'dired-hide-details-mode)
+(evil-collection-dired-setup)
+#+end_src
+
+#+begin_src emacs-lisp
+(use-package dired-subtree
+    :config
+    (evil-collection-define-key 'normal 'dired-mode-map
+        (kbd "SPC") 'dired-subtree-toggle
+        (kbd "TAB") 'dired-subtree-cycle
+        )
+    (setq dired-subtree-use-backgrounds nil)
+    ;Evil collection binds these keys, we need them for window movement
+    (evil-collection-define-key 'normal 'dired-mode-map
+        (kbd "M-j") nil
+        (kbd "M-k") nil)
+)
+
+#+end_src
+
+** Magit
+
+#+begin_src emacs-lisp
+(use-package magit
+    :config
+        (evil-collection-magit-setup)
+    :bind
+        (:map azos/global-minor-mode/open-keymap
+            ("g" . 'magit-status))
+)
+#+end_src
+
+** Org
+*** Base
+
+#+begin_src emacs-lisp
+(require 'org-faces)
+(defun azos/set-org-mode-fixed-pitch-faces ()
+    (mapc (lambda (face) (set-face-attribute face nil
+                :font (face-attribute 'fixed-pitch :font)
+                :height (face-attribute 'fixed-pitch :height)))
+    `(line-number
+        org-block
+        org-special-keyword
+        org-drawer
+        org-todo
+        org-done
+        org-priority
+        org-checkbox
+        org-block-end-line
+        org-block-begin-line
+        org-table
+        org-verbatim)))
+
+(use-package org
+    :hook
+        (org-mode . variable-pitch-mode)
+        (org-mode . azos/set-bidi-env)
+        (org-mode . (lambda ()
+            (setq-local whitespace-style '(face tabs trailing tab-mark
+            indentation))))
+    :config
+        (azos/set-org-mode-fixed-pitch-faces)
+        (setq org-src-tab-acts-natively t
+              org-adapt-indentation nil
+              org-startup-folded t
+              org-hide-emphasis-markers t)
+        (set-face-attribute 'org-code nil
+            :family (face-attribute 'fixed-pitch :family))
+        (set-face-attribute 'org-block nil
+            :family (face-attribute 'fixed-pitch :family))
+    :bind
+        ("C-a" . nil)
+        ("C-a l" . org-toggle-latex-fragment)
+)
+#+end_src
+
+#+end_src
+*** Code blocks
+
+The following displays the contents of code blocks in Org-mode files using
+the major-mode of the code. It also changes the behavior of TAB to as if it
+were used in the appropriate major mode.
+
+#+begin_src emacs-lisp
+(setq org-src-fontify-natively t
+      org-src-tab-acts-natively t
+      org-src-preserve-indentation t)
+
+(set-face-attribute 'org-block nil
+    :background "LemonChiffon1")
+(set-face-attribute 'org-block-begin-line nil
+    :background "LightYellow2")
+(set-face-attribute 'org-block-end-line nil
+    :background "LightYellow2")
+#+end_src
+
+*** Babel
+
+Define languages to use
+
+#+begin_src emacs-lisp
+(require 'ob)
+(require 'ob-tangle)
+
+;; TODO Not sure I like this here
+(org-babel-do-load-languages
+ 'org-babel-load-languages
+ '((shell . t)
+   (emacs-lisp . t)
+   (python . t)
+   (org . t)
+   (lilypond . t)
+   (latex . t)
+   (js . t)
+   (java . t)
+   (dot . t)
+   (C . t)))
+
+;; TODO move these around
+;; (add-to-list 'org-src-lang-modes (quote ("dot". graphviz-dot)))
+;; (add-to-list 'org-src-lang-modes (quote ("plantuml" . fundamental)))
+;; (add-to-list 'org-babel-tangle-lang-exts '("clojure" . "clj"))
+#+end_src
+
+This section makes code-indentation correction work inside source blocks.
+Taken from: https://github.com/emacs-evil/evil/issues/1288
+
+#+begin_src emacs-lisp
+(defun azos/org/evil-org-insert-state-in-edit-buffer (fun &rest args)
+  "Bind `evil-default-state' to `insert' before calling FUN with ARGS."
+  (let ((evil-default-state 'insert)
+        ;; Force insert state
+        evil-emacs-state-modes
+        evil-normal-state-modes
+        evil-motion-state-modes
+        evil-visual-state-modes
+        evil-operator-state-modes
+        evil-replace-state-modes)
+    (apply fun args)
+    (evil-refresh-cursor)))
+
+(advice-add 'org-babel-do-key-sequence-in-edit-buffer
+            :around #'azos/org/evil-org-insert-state-in-edit-buffer)
+#+end_src
+
+*** Fonts
+
+Fonts
+
+#+begin_src emacs-lisp
+;; (set-face-attribute 'org-document-title nil :height 200 :underline t)
+#+end_src
+
+*** Inline images
+
+#+begin_src emacs-lisp
+(setq org-startup-with-inline-images t)
+
+(defun azos/org/shk-fix-inline-images ()
+  (when org-inline-image-overlays
+    (org-redisplay-inline-images)))
+
+(with-eval-after-load 'org
+  (add-hook 'org-babel-after-execute-hook 'azos/org/shk-fix-inline-images))
+#+end_src
+
+*** Snippets
+
+Want to create snippets for latex insertion.
+There is one template for inline and one template for standalone latex snippets.
+Each template is defind by two templates. One for other langauges and one for standard
+input. This is done to toggle back to the original language once done with the
+function toggle-input-method.
+
+#+begin_src emacs-lisp
+(defun azos/org/toggle-input-method ()
+    (if current-input-method (toggle-input-method))
+)
+;Inline
+(add-hook 'org-mode-hook (lambda () (progn
+    (yas-define-snippets 'org-mode (list (list
+                                      nil
+                                      "\$$1\$$0"
+                                      "ORG_LATEX_INLINE_SNIPPET_ENG"
+                                      '(not (eval current-input-method))
+                                      nil
+                                      nil
+                                      nil
+                                      "C-l"
+                                      nil
+                                      nil
+                                      )))
+
+    (yas-define-snippets 'org-mode (list (list
+                                      nil
+                                      "\$$1\$$0"
+                                      "ORG_LATEX_INLINE_SNIPPET_OTHER_LANG"
+                                      '(eval current-input-method)
+                                      nil
+                                      '((unused (azos/org/toggle-input-method))
+                                        (yas-after-exit-snippet-hook 'toggle-input-method))
+                                      nil
+                                      "C-l"
+                                      nil
+                                      nil
+                                      )))
+
+    ;Not inline
+    (yas-define-snippets 'org-mode (list (list
+                                      nil
+                                      "\$\$$1\$\$$0"
+                                      "ORG_LATEX_OUTLINE_SNIPPET_ENG"
+                                      '(not (eval current-input-method))
+                                      nil
+                                      nil
+                                      nil
+                                      "C-S-l"
+                                      nil
+                                      nil
+                                      )))
+    (yas-define-snippets 'org-mode (list (list
+                                      nil
+                                      "\$\$$1\$\$$0"
+                                      "ORG_LATEX_OUTLINE_SNIPPET_OTHER_LANG"
+                                      '(eval current-input-method)
+                                      nil
+                                      '((unused (azos/org/toggle-input-method))
+                                        (yas-after-exit-snippet-hook 'toggle-input-method))
+                                      nil
+                                      "C-S-l"
+                                      nil
+                                      nil
+                                      )))
+    )))
+#+end_src
+
+Snippet for src blocks
+
+#+begin_src emacs-lisp
+(add-hook 'org-mode-hook (lambda () (progn
+    (yas-define-snippets 'org-mode (list (list
+                                      nil
+                                      "#+begin_src $1\n$0\n#+end_src"
+                                      "ORG_SRC_BLOCK"
+                                      nil
+                                      nil
+                                      nil
+                                      nil
+                                      "C-c i b"
+                                      nil
+                                      nil
+                                      )))
+
+    (yas-define-snippets 'org-mode (list (list
+                                      nil
+                                      (concat
+                                        "#+begin_export latex\n"
+                                        "\\begin{english}\n"
+                                        "#+end_export\n"
+                                        "#+begin_src $1\n"
+                                        "$0\n#+end_src\n"
+                                        "#+begin_export latex\n"
+                                        "\\end{english}\n"
+                                        "#+end_export")
+                                      "ORG_SRC_ENGLISH_BLOCK"
+                                      nil
+                                      nil
+                                      nil
+                                      nil
+                                      "C-c i B"
+                                      nil
+                                      nil
+                                      )))
+)))
+#+end_src
+
+*** Imenu quirks
+
+#+begin_src emacs-lisp
+(add-to-list 'org-show-context-detail '(isearch . tree))
+(add-to-list 'org-show-context-detail '(default . tree))
+#+end_src
+
+** Ibuffer
+
+#+begin_src emacs-lisp
+(evil-collection-ibuffer-setup)
+(define-key azos/global-minor-mode/keymap
+    (kbd "C-x C-b") 'ibuffer)
+#+end_src
+
+** Dashboard
+
+#+begin_src emacs-lisp
+(setq inhibit-startup-screen t)
+(use-package dashboard
+  :config
+  (add-hook 'after-init-hook
+            (lambda () (dashboard-insert-startupify-lists)))
+  (add-hook 'emacs-startup-hook (lambda ()
+                                  (switch-to-buffer dashboard-buffer-name)
+                                  (goto-char (point-min))
+                                  (redisplay)
+                                  (run-hooks 'dashboard-after-initialize-hook)))
+  (add-to-list 'evil-emacs-state-modes 'dashboard-mode)
+  (setq dashboard-items '((recents  . 5)
+                          (bookmarks . 5)
+                          (projects . 5))
+        dashboard-center-content t
+        dashboard-banner-logo-title nil
+        dashboard-set-init-info nil
+        dashboard-set-footer nil
+        dashboard-startup-banner 'ascii
+        dashboard-banner-ascii "azos"))
+#+end_src
+
+** VTerm
+
+#+begin_src emacs-lisp
+;; (use-package xterm-color :ensure t)
+;; (use-package eterm-256color :ensure t
+;;   :config
+;;   (add-hook 'term-mode-hook #'eterm-256color-mode)
+;;   (add-hook 'vterm-mode-hook #'eterm-256color-mode)
+;;   )
+#+end_src
+
+#+begin_src emacs-lisp
+(use-package vterm
+  :if  (member system-type '(gnu gnu/linux))
+  :config
+    (add-hook 'vterm-mode-hook
+            (lambda () (setq-local global-hl-line-mode nil)))
+
+    (evil-collection-define-key 'normal 'vterm-mode-map
+      (kbd "p") 'vterm-yank)
+    (setq vterm-timer-delay 0.01
+          vterm-term-environment-variable "xterm-256color"))
+#+end_src
+
+** Boomkark
+
+#+begin_src emacs-lisp
+(use-package bookmark
+    :straight
+        (:type built-in)
+    :config
+    (evil-collection-bookmark-setup)
+)
+#+end_src
+
+* Provide
+
+#+begin_src emacs-lisp
+(provide 'azos-emacs-base)
+(add-hook 'after-init-hook (lambda () (require 'azos-emacs-base)))
+#+end_src
+

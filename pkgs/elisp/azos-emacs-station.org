@@ -1,0 +1,300 @@
+#+title: Aner's Emacs Station Configuration
+#+property: header-args :results silent
+
+* Base setup
+** Require
+
+#+begin_src emacs-lisp
+(require 'azos-emacs-base)
+#+end_src
+
+* Major modes
+
+** Mail
+
+*** General instructions
+
+Due to the fact that setting up email in general is complicated, I'll recap the process here.
+
+Before ANYTHING, setup pass.
+
+https://wiki.archlinux.org/title/Pass
+
+Initialize password
+
+Then for gmail, used
+
+#+begin_src bash :results none :exports code
+pass init <ID>
+pass insert gmail.com/<username>
+#+end_src
+
+It prompted for password, I put it in.
+
+Then setup mbsync properly. The ansible files already take care of that.
+
+Then we setup ~/.mbsyncrc. This file is important and is not linked to repository for security reasons.
+
+https://wiki.archlinux.org/title/isync
+
+Wrote mbsyncrc
+
+
+Created all directories
+
+Went into gmail settings to allow less secure things.
+
+https://notmuchmail.org/getting-started/
+
+We then RUN notmuch, and notmuch setup for prompt.
+
+Adding emails can be done with notmuch new
+
+*** Config
+
+#+begin_src emacs-lisp
+;; (defvar azos/mail/sync-list nil "List of functions with args to sync mail")
+
+;; (defun azos/mail/lieer-sync-func-str (maildir)
+;;   (concat "cd " maildir " && gmi sync -s"))
+
+;; (defun azos/mail/mbsync-func-str ()
+;;     "mbsync -a")
+
+;; (defun azos/mail/pre-sync-func-str ()
+;;     (concat (mapconcat 'eval (mapcar 'apply azos/mail/sync-list) " &\n")
+;;         "\nwait\n"))
+
+;; (defun azos/mail/sync-notify () (interactive)
+;;   (let ((command (concat (azos/mail/pre-sync-func-str)
+;;                          "{ if [[ $(notmuch new | grep \"No new mail\") ]]; "
+;;                          "then dunstify -u low \"Synced mail\" ; "
+;;                          "else dunstify \"New mail!\" ; fi ; } || "
+;;                          "dunstify -u critical \"Error syncing mail\"")))
+;;     (start-process-shell-command "mailsync" "*mailsync*" command)))
+
+;; (defun azos/mail/sync-n-notify ()
+;;   (let ((command (concat (azos/mail/pre-sync-func-str)
+;;                          "{ if [[ $(notmuch new | grep \"No new mail\") ]]; "
+;;                          "then : ; "
+;;                          "else dunstify \"New mail!\" ; fi ; } || "
+;;                          "dunstify -u critical \"Error syncing mail\"")))
+;;     (start-process-shell-command "mailsync" "*mailsync*" command)))
+
+;; (defun azos/mail/set-sync-list (sync-list)
+;;     "Set list of mails and start timer"
+;;     (progn
+;;         (setq azos/mail/sync-list sync-list)))
+;; ;        (azos/run-timer 'mail-sync 'azos/mail/sync-n-notify (* 60 10))))
+
+(use-package notmuch
+  :straight (:type built-in)
+  :init
+    (setq-default
+        notmuch-hello-sections
+            '(notmuch-hello-insert-saved-searches
+              notmuch-hello-insert-alltags)
+        notmuch-always-prompt-for-sender t
+        message-sendmail-envelope-from 'header)
+  :config
+    (evil-collection-notmuch-setup)
+    (add-hook 'notmuch-show-mode 'azos/default-variable-pitch)
+    (setq send-mail-function 'sendmail-send-it
+          notmuch-search-oldest-first nil
+          message-cite-style message-cite-style-gmail
+          message-citation-line-function
+            'message-insert-formatted-citation-line)
+    (defun azos/notmuch-archive () "Archive a message" (interactive)
+        (progn
+            (evil-collection-notmuch-toggle-tag "arx" "search" 'ignore)
+            (evil-collection-notmuch-toggle-tag "inbox" "search"
+                                                'notmuch-search-next-thread)
+            ))
+    (defun azos/notmuch-keep () "Mark important message for keeps" (interactive)
+        (progn
+            (evil-collection-notmuch-toggle-tag "keep" "search"
+                                                'notmuch-search-next-thread)))
+
+    (defun azos/notmuch-delete-gmail () "Delete a message, no inbox"
+        (interactive)
+        (progn
+            (evil-collection-notmuch-toggle-tag "deleted" "search" 'ignore)
+            (evil-collection-notmuch-toggle-tag "trash" "search" 'ignore)
+            (evil-collection-notmuch-toggle-tag "inbox" "search"
+                                                'notmuch-search-next-thread)))
+
+    (defun azos/notmuch-toggle-inbox () "Toggles inbox tag" (interactive)
+            (evil-collection-notmuch-toggle-tag "inbox" "search" 'ignore))
+
+    (dolist (state '(normal visual))
+        (evil-collection-define-key state 'notmuch-search-mode-map
+          "d" 'azos/notmuch-delete-gmail
+          "I" 'azos/notmuch-toggle-inbox
+          "D" 'evil-collection-notmuch-search-toggle-delete
+          "A" 'azos/notmuch-archive
+          "K" 'azos/notmuch-keep))
+    (evil-collection-define-key 'normal 'notmuch-show-mode-map
+        (kbd "M-j") nil
+        (kbd "K") nil
+        (kbd "M-k") nil)
+
+  :bind
+    (:map azos/global-minor-mode/open-keymap
+        ("m" . notmuch))
+)
+#+end_src
+
+Run this command to make sendmail use the right thing
+
+#+begin_src bash :results none :exports code
+sudo ln -s /usr/bin/msmtp /usr/sbin/sendmail
+#+end_src
+
+Then we go to
+
+https://wiki.archlinux.org/title/isync
+
+We will do this manually.
+
+*** Signatures
+
+Taken from
+
+https://emacs.stackexchange.com/questions/27759/do-not-automatically-sign-emails-directed-to-mailing-lists-and-such
+
+Thanks to Dan of Stackoverflow.
+
+#+begin_src emacs-lisp
+(defvar azos/mail/blacklist-addresses nil
+  "List of email addresses (as strings) to blacklist for
+  `mml-secure-message-sign'.")
+
+(defun azos/mail/secure-sign-maybe ()
+  "Use `mml-secure-message-sign' unless the addressee is in the
+`azos/mail/blacklist-addresses'."
+  (let ((addresses (mapcar (lambda (address)
+                             (when (string-match
+                                    "\\(<?\\)\\([^@< ]+@[^@> ]+\\)\\(>?\\)"
+                                    address)
+                               (match-string 2 address)))
+                           ;; (split-string (message-field-value "To")
+                           ;;               "," t "[[:blank:]]+"))))
+                           (split-string (concat (message-field-value "To")
+                                                 ", "
+                                                 (message-field-value "Cc"))
+                                         "," t "[[:blank:]]+"))))
+    ;; skip secure signing when an address is blacklisted
+    (unless (delq nil (mapcar (lambda (address)
+                    (car (member address azos/mail/blacklist-addresses)))
+                    addresses))
+      (mml-secure-message-sign))))
+#+end_src
+
+** Elfeed
+
+MPV from https://www.reddit.com/r/emacs/comments/7usz5q/youtube_subscriptions_using_elfeed_mpv_no_browser/
+
+https://medium.com/emacs/using-elfeed-to-view-videos-6dfc798e51e6
+
+#+begin_src emacs-lisp
+(use-package elfeed
+    :init
+        (defun azos/elfeed/v-mpv (url)
+            "Watch a video from URL in MPV"
+            (start-process "mpv" nil "mpv" url))
+
+        (defun azos/elfeed/view-mpv (&optional use-generic-p)
+        "Youtube-feed link"
+        (interactive "P")
+        (let ((entries (elfeed-search-selected)))
+            (cl-loop for entry in entries
+            do (elfeed-untag entry 'unread)
+            when (elfeed-entry-link entry)
+            do (azos/elfeed/v-mpv it))
+        (mapc #'elfeed-search-update-entry entries)))
+
+        (defun slurp (f)
+        (with-temp-buffer
+            (insert-file-contents f)
+            (buffer-substring-no-properties
+            (point-min)
+            (point-max))))
+
+        (setq-default elfeed-search-filter "@3-days-ago")
+    :config
+        (evil-collection-elfeed-setup)
+)
+#+end_src
+
+*** Elfeed tube
+
+https://github.com/karthink/elfeed-tube
+
+#+begin_src emacs-lisp
+(use-package elfeed-tube
+  :ensure t ;; or :straight t
+  :after elfeed
+  :demand t
+  :config
+  ;; (setq elfeed-tube-auto-save-p nil) ; default value
+  ;; (setq elfeed-tube-auto-fetch-p t)  ; default value
+  (elfeed-tube-setup)
+
+  :bind (:map elfeed-show-mode-map
+         ("F" . elfeed-tube-fetch)
+         ([remap save-buffer] . elfeed-tube-save)
+         :map elfeed-search-mode-map
+         ("F" . elfeed-tube-fetch)
+         ([remap save-buffer] . elfeed-tube-save)))
+
+(use-package elfeed-tube-mpv
+  :ensure t ;; or :straight t
+  :after elfeed-tube
+  :bind (:map elfeed-show-mode-map
+              ("C-c C-f" . elfeed-tube-mpv-follow-mode)
+              ("C-c C-w" . elfeed-tube-mpv-where)))
+#+end_src
+
+** Pass
+
+#+begin_src emacs-lisp
+(use-package pass
+  :bind
+    (:map azos/global-minor-mode/open-keymap
+        ("p" . 'password-store-copy)))
+#+end_src
+
+** Calendar
+
+#+begin_src emacs-lisp
+(evil-collection-calendar-setup)
+#+end_src
+
+** OpenSCAD
+
+#+begin_src emacs-lisp
+(use-package scad-mode)
+
+; Disabling for now
+;; (use-package scad-preview
+;;   :straight '(
+;;               scad-preview
+;;               :type git
+;;               :host github
+;;               :repo "zk-phi/scad-preview"))
+#+end_src
+
+** Kubernetes
+
+#+begin_src emacs-lisp
+(use-package kubernetes
+  :ensure t
+  :commands (kubernetes-overview))
+#+end_src
+
+* Provide
+
+#+begin_src emacs-lisp
+(provide 'azos-emacs-station)
+(add-hook 'after-init-hook (lambda () (require 'azos-emacs-station)))
+#+end_src

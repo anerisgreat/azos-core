@@ -1,0 +1,357 @@
+#+title: Aner's Emacs EXWM Configuration
+#+property: header-args :results silent
+
+* Base setup
+** Require
+
+#+begin_src emacs-lisp
+(require 'azos-emacs-station)
+(require 'azos-emacs-base)
+#+end_src
+
+* EXWM
+
+We execute the following code only if started with EXWM argument
+
+** EXWM Setup
+
+#+begin_src emacs-lisp
+(defvar azos/exwm/load-hook nil "Load EXWM hook")
+
+(defun azos/exwm/load-exwm (switch) "Loads EXWM"
+    (use-package exwm
+    :ensure t
+    :config
+        (require 'exwm)
+        (require 'exwm-randr)
+        ;Workspaces
+        (setq exwm-workspace-number 4
+            exwm-layout-show-all-buffers t
+            exwm-workspace-show-all-buffers t)
+        ;System tray
+        (require 'exwm-systemtray)
+        (setq exwm-systemtray-background-color "LightYellow3")
+        (exwm-systemtray-enable)
+
+        ;In EXWM mode, no evil
+        (add-to-list 'evil-emacs-state-modes 'exwm-mode)
+        (run-hooks 'azos/exwm/load-hook)
+
+        ;Enable
+        (exwm-randr-enable)
+        (exwm-enable)
+    ))
+#+end_src
+
+** Smart buffer naming
+
+#+begin_src emacs-lisp
+(add-hook 'azos/exwm/load-hook (lambda () (progn
+
+(add-hook 'exwm-update-class-hook
+          (lambda ()
+            (unless (or (string-prefix-p "sun-awt-X11-" exwm-instance-name)
+                        (string= "gimp" exwm-instance-name))
+                        (string-prefix-p "qute" exwm-instance-name)
+              (exwm-workspace-rename-buffer exwm-class-name))))
+
+(add-hook 'exwm-update-title-hook
+          (lambda ()
+            (when (or (not exwm-instance-name)
+                      (string-prefix-p "sun-awt-X11-" exwm-instance-name)
+                      (string-prefix-p "qute" exwm-instance-name)
+                      (string= "gimp" exwm-instance-name))
+              (exwm-workspace-rename-buffer exwm-title))))
+
+(add-hook 'exwm-update-class-hook
+        (lambda ()
+            (when (or (not exwm-instance-name)
+                    (string-prefix-p "mpv" exwm-class-name))
+            (exwm-workspace-rename-buffer (concat "mpv | " exwm-title)))))
+
+)))
+#+end_src
+
+** Basic keybindings
+
+Global keybindings can be defined with `exwm-input-global-keys'.
+Here are a few examples:
+#+begin_src emacs-lisp
+(add-hook 'azos/exwm/load-hook (lambda ()
+    (setq exwm-input-global-keys
+      `(
+        ;; Bind "s-<f2>" to "slock", a simple X display locker.
+        ([s-f2] . (lambda ()
+            (interactive)
+            (start-process "" nil "/usr/bin/slock")))
+        ([s-<tab>] . persp-switch)
+        ;; Bind "s-r" to exit char-mode and fullscreen mode.
+        ([?\s-r] . exwm-reset)
+        ;; Bind "s-w" to switch workspace interactively.
+        ([?\s-w] . exwm-workspace-switch)
+        ;; Bind "s-0" to "s-9" to switch to a workspace by its index.
+        ,@(mapcar (lambda (i)
+                    `(,(kbd (format "s-%d" i)) .
+                      (lambda ()
+                        (interactive)
+                        (exwm-workspace-switch-create ,i))))
+                  (number-sequence 0 9))
+        ;; Bind "s-&" to launch applications ('M-&' also works if the output
+        ;; buffer does not bother you).
+        ([?\s-&] . (lambda (command)
+             (interactive (list (read-shell-command "$ ")))
+             (start-process-shell-command command nil command)))
+        ))))
+
+(defun azos/exwm/take-screenshot ()
+  (interactive)
+  (shell-command "flameshot gui")
+)
+
+(defun azos/exwm/start-qutebrowser ()
+  (interactive)
+  (start-process "qutebrowser" nil "qutebrowser"))
+
+(add-hook 'azos/exwm/load-hook (lambda () (progn
+    (define-key azos/global-minor-mode/open-keymap
+        (kbd "q") 'azos/exwm/start-qutebrowser)
+    (define-key azos/global-minor-mode/keymap
+        (kbd "<print>") 'azos/exwm/take-screenshot))))
+#+end_src
+
+** Better modeline
+
+This currently does nothing and I am not sure why.
+
+#+begin_src emacs-lisp
+(defvar azos/exwm/modeline-hash-table (make-hash-table)
+  "Table to store relative face change cookies in")
+
+(defface azos/exwm/modeline-remap-style
+  (list (list t (list :background  azos/evil-color-insert)))
+  "Make the backgrounds pop to green")
+
+(defun azos/exwm/input-mode-modeline () "Changes modeline based on input mode"
+       (let ((currbuff (current-buffer)))
+            (if (eq exwm--input-mode 'char-mode)
+                ;;line
+                (let ((remap-cookie (gethash currbuff
+                        azos/exwm/modeline-hash-table)))
+                    (if remap-cookie
+                        (progn
+                            (face-remap-remove-relative remap-cookie)
+                            (remhash currbuff
+                                     azos/exwm/modeline-hash-table))))
+                ;;char
+                (puthash
+                    currbuff
+                    (face-remap-add-relative 'mode-line
+                                             'azos/exwm/modeline-remap-style)
+                    azos/exwm/modeline-hash-table)
+       )))
+(add-hook 'exwm-input-input-mode-change-hook 'azos/exwm/input-mode-modeline)
+;; (set-face-attribute 'mode-line nil :box nil :background "AliceBlue")
+;; (set-face-attribute 'mode-line-inactive nil :box nil :background "LightYellow3")
+#+end_src
+
+** RANDR screen settings
+
+Enabling randr. Automatic mapping of randr screens to workspaces.
+
+#+begin_src emacs-lisp
+(defun azos/exwm/get-monitor-list ()
+    (mapcar (lambda (x) (match-string (string-match "^[A-Za-z]+-*[0-9]+" x) x))
+        (azos/re-seq "^[A-Za-z]+-*[0-9]+ connected"
+                        (shell-command-to-string "xrandr"))))
+
+(defun azos/exwm/add-indexes (list)
+  (azos/exwm/add-indexes-i list 1)
+)
+
+(defun azos/exwm/add-indexes-i (list i)
+  (if list
+        (cons i (cons (car list) (azos/exwm/add-indexes-i (cdr list) (+ i 1))))
+        nil))
+
+(defun azos/exwm/update-randr-monitor-plist ()
+  (interactive)
+    (progn
+        (start-process
+            "xlayoutdisplay" nil "xlayoutdisplay")
+        (setq exwm-randr-workspace-monitor-plist
+                (azos/exwm/add-indexes (azos/exwm/get-monitor-list)))
+        (exwm-randr-refresh)))
+
+(add-hook 'azos/exwm/load-hook (lambda () (progn
+    (add-hook 'exwm-randr-screen-change-hook
+                'azos/exwm/update-randr-monitor-plist)
+
+    (define-key azos/global-minor-mode/keymap
+        (kbd "s-x") 'azos/exwm/update-randr-monitor-plist))))
+#+end_src
+
+** Prefix keys
+
+Sending simulated keys to X windows
+#+begin_src emacs-lisp
+(add-hook 'azos/exwm/load-hook (lambda () (progn
+    (setq exwm-input-prefix-keys
+    '(?\C-x ?\C-u ?\C-h ?\M-x ?\M-& ?\M-: ?\s-d
+            ?\s-m ?\s-r ?\s-s ?\s-q ?\H-l ?\C-w)))))
+#+end_src
+
+** Desktop environment
+
+#+begin_src emacs-lisp
+(use-package desktop-environment :after exwm)
+#+end_src
+
+** Bluetooth
+
+#+begin_src emacs-lisp
+(use-package bluetooth :after exwm)
+#+end_src
+
+** Pulse
+
+#+begin_src emacs-lisp
+(use-package pulseaudio-control :after exwm)
+#+end_src
+
+** Media keys
+
+https://gist.github.com/ajyoon/5323b999a01dce8db2d4456da1740fe3
+
+#+begin_src emacs-lisp
+(add-hook 'azos/exwm/load-hook (lambda ()
+    (progn
+        (dolist (k '(
+                     XF86AudioLowerVolume
+                     XF86AudioRaiseVolume
+                     XF86AudioPlay
+                     XF86AudioStop
+                     XF86AudioPrev
+                     XF86AudioNext))
+          (push k exwm-input-prefix-keys))
+
+        (exwm-input-set-key
+            (kbd "<XF86AudioRaiseVolume>")
+            (lambda ()
+                (interactive) (start-process
+                    "pactl" nil "pactl" "set-sink-volume" "0" "+5%")))
+        (exwm-input-set-key
+            (kbd "<XF86AudioLowerVolume>")
+            (lambda ()
+                (interactive) (start-process
+                    "pactl" nil "pactl" "set-sink-volume" "0" "-5%")))
+
+        (exwm-input-set-key
+            (kbd "<XF86AudioMute>")
+                (lambda ()
+                    (interactive) (start-process
+                        "pactl" nil "pactl" "set-sink-mute" "0" "toggle")))
+
+        (exwm-input-set-key
+            (kbd "<XF86AudioPlay>")
+            'desktop-environment-toggle-music)
+
+        (exwm-input-set-key
+            (kbd "<XF86AudioNext>")
+            'desktop-environment-music-next)
+
+        (exwm-input-set-key
+            (kbd "<XF86AudioPrev>")
+            'desktop-environment-music-previous)
+
+        (exwm-input-set-key
+            (kbd "<XF86AudioStop>")
+            'desktop-environment-music-stop)
+
+        (exwm-input-set-key
+            (kbd "<XF86AudioPause>")
+            'desktop-environment-toggle-music)
+
+        (exwm-input-set-key
+            (kbd "<XF86MonBrightnessUp>")
+                (lambda ()
+                    (interactive) (start-process
+                        "light" nil "light" "-A" "5")))
+
+        (exwm-input-set-key
+            (kbd "<XF86MonBrightnessDown>")
+                (lambda ()
+                    (interactive) (start-process
+                        "light" nil "light" "-U" "5")))
+        )))
+#+end_src
+
+In the event =xbacklight= doesn't work, the following command can be run:
+
+#+begin_example
+xrandr --output eDP1 --brightness 0.5
+#+end_example
+
+** Dedicated processes
+
+We'd want to be able to quickly map processes (Spotify, etc.) to
+keybindings, and have dedicated buffers for them (so they don't reopen).
+
+We first define variables to be used later, and a function that checks, for each
+new process, should it be displayed in a new buffer/tab.
+
+#+begin_src emacs-lisp
+(defvar azos/exwm/startproc-regex-buffname-list nil
+  "Match between buffer and tab.")
+(defun azos/exwm/startproc-check-for-buff-entry ()
+  "On new buffer, check if requested to display differently"
+  (let ((entry (cdr (car (seq-filter
+                     (lambda (e) (string-match (car e) (buffer-name)))
+                    azos/exwm/startproc-regex-buffname-list
+                     )))))
+    (if entry
+        (let ((rn (nth 0 entry)) (tn (nth 1 entry)) (buff (current-buffer)))
+            ;; Too much complication for renaming
+            ;; (if requested-name (rename-buffer requested-name))
+            (progn
+                (if tn (tab-bar-switch-to-tab tn))
+                (switch-to-buffer buff)
+                )))))
+
+(add-hook 'exwm-manage-finish-hook 'azos/exwm/startproc-check-for-buff-entry)
+#+end_src
+
+#+begin_src emacs-lisp
+(defun azos/exwm/start-proc-dedicated
+    (name tab-name procregex proc &rest args)
+    (let ((buff (car (seq-filter (lambda (b
+)
+            (string-match procregex (buffer-name b)))
+                    (buffer-list)))))
+        (if buff
+            ;; Found buffer, display
+            (progn
+                (if tab-name (tab-bar-switch-to-tab tab-name))
+                (switch-to-buffer buff)
+                )
+            ;;No known buffer, add entry to alist
+            (let ((new-entry `(,procregex ,tab-name ,name))) (progn
+                (add-to-list 'azos/exwm/startproc-regex-buffname-list
+                             new-entry)
+                (apply 'start-process name nil proc
+                        args))))))
+#+end_src
+
+** EXWM Ending
+
+End the execute only if EXWM block.
+
+#+begin_src emacs-lisp
+(add-to-list 'command-switch-alist '("--start-exwm" . azos/exwm/load-exwm))
+#+end_src
+
+* Provide
+
+#+begin_src emacs-lisp
+(provide 'azos-emacs-exwm)
+(add-hook 'after-init-hook (lambda () (require 'azos-emacs-exwm)))
+#+end_src
