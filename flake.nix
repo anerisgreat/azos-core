@@ -28,24 +28,24 @@
       );
   in
 
-    # Per system outputs:
-    eachDefaultEnvironment ({ system, pkgs }: {
-      azos-packages = ((import ./pkgs) {pkgs = pkgs ;} );
-    })
+    # # Per system outputs:
+    # eachDefaultEnvironment ({ system, pkgs }: {
+    #   azos-packages = ((import ./pkgs) {pkgs = pkgs ;} );
+    # });
+
 
     # Generic outputs:
-    // {
+    {
+
       nixosModules = rec {
         homeManagerModules = import ./modules/home-manager;
         nixosModules = import ./modules/nixos;
       };
 
-      # overlays = rec {
-      #   a = import ./overlays/a;
-      #   b = import ./overlays/b;
-      #   c = import ./overlays/c;
-      #   default = final: prev:
-      #     lib.composeManyExtensions [ a b c ] final prev;
-      # };
+      overlays = rec {
+        azos-pkgs = import ./pkgs;
+        default = final: prev:
+          lib.composeManyExtensions [ azos-pkgs ] final prev;
+      };
     };
 }
