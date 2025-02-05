@@ -42,6 +42,8 @@
         nixosModules = import ./modules/nixos;
       };
 
+      azos-pkgs-overlay = final: _prev: import ./pkgs {pkgs = final;};
+
       overlays = rec {
         azos-pkgs = import ./pkgs;
         default = final: prev:
