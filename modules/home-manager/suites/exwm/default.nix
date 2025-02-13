@@ -12,10 +12,12 @@ in
     ./emacs
   ];
 
+  #TODO shutdown reboot commands
   config = lib.mkIf isEnabled {
-    home.packages = [ pkgs.xlayoutdisplay ];
+    home.packages = with pkgs; [ xlayoutdisplay xorg.xrandr ];
+    home.file.".xinitrc" = {text = ''
+exec emacs --start-exwm
+'' ; };
+
   };
-
-
-
 }
