@@ -28,5 +28,6 @@ orgTrivialBuild {
         dired-subtree
         dashboard
         vterm
+        load-dir
     ];
 }
