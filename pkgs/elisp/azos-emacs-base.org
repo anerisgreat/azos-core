@@ -10,7 +10,7 @@
 
     ;Backups from https://www.emacswiki.org/emacs/BackupDirectory
     backup-directory-alist `(("." . temporary-file-directory))
-    auto-save-file-name-transforms `((".*" temporary-file-directory t))
+    auto-save-file-name-transforms `((".*" ,temporary-file-directory t))
     backup-by-copying t ;Always copy never link
     delete-old-versions t ;Auto delete old backups
     kept-new-versions 6 ;Number of versions to keep
