@@ -262,8 +262,6 @@ in
       };
     };
 
-    programs.password-store.enable = true;
-
     home.packages = with pkgs; [
       qutebrowser
       mpv
