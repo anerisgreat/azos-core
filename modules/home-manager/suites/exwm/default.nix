@@ -14,7 +14,7 @@ in
 
   #TODO shutdown reboot commands
   config = lib.mkIf isEnabled {
-    home.packages = with pkgs; [ xlayoutdisplay xorg.xrandr ];
+    home.packages = with pkgs; [ ];
     home.file.".xinitrc" = {text = ''
 exec emacs --start-exwm
 '' ; };

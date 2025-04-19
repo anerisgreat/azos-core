@@ -7,6 +7,7 @@
         autorun = false;
         exportConfiguration = true;
         # layout = "gb";
+        displayManager.startx.enable = true;
     };
     services.greetd = {
         enable = true;
@@ -21,6 +22,10 @@
     environment.systemPackages = with pkgs; [
         xorg.xinit
         greetd.tuigreet
+        xlayoutdisplay
+        xorg.xrandr
+        xorg.xcbutil
+        xorg.libxcb
     ];
 
   };
