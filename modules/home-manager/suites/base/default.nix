@@ -23,16 +23,20 @@ in
   config = lib.mkIf isEnabled {
     fonts.fontconfig.enable = true;
     home.packages = with pkgs; [
-        liberation_ttf
-        font-awesome
-        noto-fonts
-        noto-fonts-cjk-sans
-        noto-fonts-emoji
-        liberation_ttf
-        fira-code
-        fira-code-symbols
-        mplus-outline-fonts.githubRelease
-        dina-font
+      wget
+      curl
+
+      #fonts
+      liberation_ttf
+      font-awesome
+      noto-fonts
+      noto-fonts-cjk-sans
+      noto-fonts-emoji
+      liberation_ttf
+      fira-code
+      fira-code-symbols
+      mplus-outline-fonts.githubRelease
+      dina-font
     ];
   };
 }

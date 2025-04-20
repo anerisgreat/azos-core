@@ -8,7 +8,7 @@ in
   options.azos.gpgagent.enable = (azos-utils.mkFeatureEnableOption {});
 
   config = lib.mkIf isEnabled {
-    home.packages =  [ pkgs.gnupg ];
-    home.file.".gnupg/gpg-agent.conf".source = ./gpg-agent.conf;
+    # home.packages =  [ pkgs.gnupg ];
+    # home.file.".gnupg/gpg-agent.conf".source = ./gpg-agent.conf;
   };
 }
