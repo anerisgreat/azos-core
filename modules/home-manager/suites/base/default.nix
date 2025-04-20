@@ -17,8 +17,17 @@
     description = "Your full name.";
     };
 
-  config.home.packages = [
-    pkgs.liberation_ttf
-    pkgs.font-awesome
+  config.home.packages = with pkgs; [
+    liberation_ttf
+    font-awesome
+    noto-fonts
+    noto-fonts-cjk-sans
+    noto-fonts-emoji
+    liberation_ttf
+    fira-code
+    fira-code-symbols
+    mplus-outline-fonts.githubRelease
+    dina-font
+    proggyfonts
   ];
 }
