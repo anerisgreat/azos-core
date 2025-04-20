@@ -253,6 +253,12 @@ Setting up keymaps
 #+end_src
 
 ** Assorted utility functions
+
+#+begin_src emacs-lisp
+(set-language-environment "UTF-8")
+(set-locale-environment "en_US.UTF-8")
+#+end_src
+
 * UI
 ** General
 *** Clean UI
