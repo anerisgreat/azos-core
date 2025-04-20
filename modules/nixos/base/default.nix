@@ -7,7 +7,7 @@
         autorun = false;
         exportConfiguration = true;
         # layout = "gb";
-        displayManager.startx.enable = true;
+        # displayManager.startx.enable = true;
     };
     services.greetd = {
         enable = true;
