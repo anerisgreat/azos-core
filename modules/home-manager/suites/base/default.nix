@@ -1,5 +1,9 @@
 #https://xeiaso.net/talks/asg-2023-nixos/ example
 { lib, config, pkgs, options, azos-utils, ... }:
+let
+  isEnabled =
+    config.azos.suites.base.enable;
+in
 {
   options.azos.suites.base.enable = (azos-utils.mkSuiteEnableOption {});
 
@@ -16,17 +20,19 @@
     type = lib.types.str;
     description = "Your full name.";
     };
-
-  config.home.packages = with pkgs; [
-    liberation_ttf
-    font-awesome
-    noto-fonts
-    noto-fonts-cjk-sans
-    noto-fonts-emoji
-    liberation_ttf
-    fira-code
-    fira-code-symbols
-    mplus-outline-fonts.githubRelease
-    dina-font
-  ];
+  config = lib.mkIf isEnabled {
+    fonts.fontconfig.enable = true;
+    home.packages = with pkgs; [
+        liberation_ttf
+        font-awesome
+        noto-fonts
+        noto-fonts-cjk-sans
+        noto-fonts-emoji
+        liberation_ttf
+        fira-code
+        fira-code-symbols
+        mplus-outline-fonts.githubRelease
+        dina-font
+    ];
+  };
 }
