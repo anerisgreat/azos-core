@@ -341,20 +341,12 @@ new process, should it be displayed in a new buffer/tab.
                         args))))))
 #+end_src
 
-** Test
-
-#+begin_src emacs-lisp
-(add-hook 'azos/exwm/load-hook (lambda () (message "I GOT HERE")))
-#+end_src
-
 ** EXWM Ending
 
 End the execute only if EXWM block.
 
 #+begin_src emacs-lisp
-;; (add-to-list 'command-switch-alist '("--start-exwm" . azos/exwm/load-exwm))
-
-(azos/exwm/load-exwm)
+(add-to-list 'command-switch-alist '("--start-exwm" . azos/exwm/load-exwm))
 #+end_src
 
 * Provide

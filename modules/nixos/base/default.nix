@@ -25,8 +25,6 @@
         xlayoutdisplay
         xorg.xrandr
         xorg.xcbutil
-        xorg.libxcb
-        xorg.libxcb.dev
     ];
 
   };

@@ -1276,9 +1276,9 @@ Snippet for src blocks
                           (bookmarks . 5)
                           (projects . 5))
         dashboard-center-content t
-        dashboard-banner-logo-title nil
-        dashboard-set-init-info nil
-        dashboard-set-footer nil
+        ;; dashboard-banner-logo-title nil
+        ;; dashboard-set-init-info nil
+        ;; dashboard-set-footer nil
         dashboard-startup-banner 'ascii
         dashboard-banner-ascii "azos"))
 #+end_src
