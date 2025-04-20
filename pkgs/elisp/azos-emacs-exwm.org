@@ -18,7 +18,7 @@ We execute the following code only if started with EXWM argument
 #+begin_src emacs-lisp
 (defvar azos/exwm/load-hook nil "Load EXWM hook")
 
-(defun azos/exwm/load-exwm () "Loads EXWM"
+(defun azos/exwm/load-exwm (switch) "Loads EXWM"
     (use-package exwm
     :ensure t
     :config
