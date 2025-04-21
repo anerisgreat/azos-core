@@ -1270,21 +1270,15 @@ Snippet for src blocks
 (setq inhibit-startup-screen t)
 (use-package dashboard
   :config
-  (add-hook 'after-init-hook
-            (lambda () (dashboard-insert-startupify-lists)))
-  (add-hook 'emacs-startup-hook (lambda ()
-                                  (switch-to-buffer dashboard-buffer-name)
-                                  (goto-char (point-min))
-                                  (redisplay)
-                                  (run-hooks 'dashboard-after-initialize-hook)))
+  (dashboard-setup-startup-hook)
   (add-to-list 'evil-emacs-state-modes 'dashboard-mode)
   (setq dashboard-items '((recents  . 5)
                           (bookmarks . 5)
                           (projects . 5))
         dashboard-center-content t
-        ;; dashboard-banner-logo-title nil
-        ;; dashboard-set-init-info nil
-        ;; dashboard-set-footer nil
+        dashboard-banner-logo-title nil
+        dashboard-set-init-info nil
+        dashboard-set-footer nil
         dashboard-startup-banner 'ascii
         dashboard-banner-ascii "azos"))
 #+end_src
