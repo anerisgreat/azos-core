@@ -88,7 +88,6 @@ Adding emails can be done with notmuch new
 ;; ;        (azos/run-timer 'mail-sync 'azos/mail/sync-n-notify (* 60 10))))
 
 (use-package notmuch
-  :straight (:type built-in)
   :init
     (setq-default
         notmuch-hello-sections

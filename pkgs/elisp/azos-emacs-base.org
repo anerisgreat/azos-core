@@ -961,8 +961,7 @@ Helps with many functions to use counsel's/ivy's autocomplete with projectile.
 Ensuring tramp is loaded, and loading counsel-tramp for easy tramping.
 
 #+begin_src emacs-lisp
-(use-package tramp
-  :straight (:type built-in))
+(require 'tramp)
 
 (use-package counsel-tramp)
 #+end_src
