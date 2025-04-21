@@ -262,6 +262,10 @@ in
       };
     };
 
+    home.activation.mk-downloads = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        mkdir -p $HOME/downloads
+    '';
+
     home.packages = with pkgs; [
       qutebrowser
       mpv
