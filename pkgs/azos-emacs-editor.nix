@@ -15,5 +15,6 @@ orgTrivialBuild {
         markdown-toc
         org-present
         pdf-tools
+        pandoc-mode
     ];
 }
