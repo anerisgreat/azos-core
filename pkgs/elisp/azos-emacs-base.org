@@ -623,6 +623,7 @@ Loading yasnippet. Useful for snippeting. Mode-specific snippets defined in rele
 #+begin_src emacs-lisp
 (use-package yasnippet
   :config
+    (setq yas-snippet-dirs '())
     (yas-global-mode 1)
 )
 #+end_src
