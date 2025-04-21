@@ -44,7 +44,7 @@ in
             (builtins.map (s : "(require '" + s + ")\n")
               config.azos.emacs.enabledSuites)) + ''
 (use-package load-dir
-  :config (setq load-dirs (concat user-emacs-directory "extra/")))
+  :config (setq load-dirs (concat user-emacs-directory "/extra/")))
 '';
     };
   };
