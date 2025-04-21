@@ -42,7 +42,10 @@ in
         ));
         extraConfig = (lib.strings.concatStringsSep "\n"
             (builtins.map (s : "(require '" + s + ")\n")
-            config.azos.emacs.enabledSuites));
+              config.azos.emacs.enabledSuites)) + ''
+(use-package load-dir
+  :config (setq load-dirs (concat user-emacs-directory "extra/")))
+'';
     };
   };
 }

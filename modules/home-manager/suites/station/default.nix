@@ -267,7 +267,7 @@ in
       mpv
       upower
       pass
-      lmms
+      reaper
     ];
   };
 }
