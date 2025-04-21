@@ -22,8 +22,6 @@
 
     ;Set external cusotm file
     custom-file (expand-file-name "custom.el" user-emacs-directory)
-
-    debug-on-error t
 )
 
 #+end_src

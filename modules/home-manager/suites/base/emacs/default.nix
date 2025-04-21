@@ -45,6 +45,9 @@ in
               config.azos.emacs.enabledSuites)) + ''
 (use-package load-dir
   :config (setq load-dirs (concat user-emacs-directory "/extra/")))
+
+(setq debug-on-error t)
+
 '';
     };
   };
