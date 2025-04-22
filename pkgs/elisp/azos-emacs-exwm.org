@@ -32,7 +32,7 @@ We execute the following code only if started with EXWM argument
         ;System tray
         (require 'exwm-systemtray)
         (setq exwm-systemtray-background-color "LightYellow3")
-        (exwm-systemtray-mode 1)
+        (exwm-systemtray-enable)
 
         ;In EXWM mode, no evil
         (add-to-list 'evil-emacs-state-modes 'exwm-mode)
