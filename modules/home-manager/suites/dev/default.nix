@@ -5,5 +5,6 @@
 
   imports = [
     ./emacs
+    ./direnv.nix
   ];
 }

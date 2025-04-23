@@ -22,6 +22,7 @@ in
     };
   config = lib.mkIf isEnabled {
     fonts.fontconfig.enable = true;
+    programs.bash.enable = true; #Bash enabling
     home.packages = with pkgs; [
       wget
       curl
