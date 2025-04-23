@@ -613,6 +613,12 @@ We use [[https://www.reddit.com/r/emacs/comments/4mhphb/spacemacs_how_to_limit_t
     (which-key-mode))
 #+end_src
 
+*** No startup
+
+#+begin_src emacs-lisp
+(setq inhibit-startup-screen t)
+#+end_src
+
 ** Text
 *** YASnippet
 
@@ -1267,7 +1273,6 @@ Snippet for src blocks
 ** Dashboard
 
 #+begin_src emacs-lisp
-(setq inhibit-startup-screen t)
 (use-package dashboard
   :config
   (dashboard-setup-startup-hook)
