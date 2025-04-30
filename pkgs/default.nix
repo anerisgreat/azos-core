@@ -30,6 +30,7 @@ let
   localEmacsPkg = (src: pkgs.callPackage src { orgTrivialBuild = orgTrivialBuild; epkgs = epkgs; pkgs = pkgs; });
 in
 {
+  azos.emacs.orgTrivialBuild = orgTrivialBuild;
   azos.emacs.base = localEmacsPkg ./azos-emacs-base.nix;
   azos.emacs.editor = localEmacsPkg ./azos-emacs-editor.nix;
   azos.emacs.dev = localEmacsPkg ./azos-emacs-dev.nix;
