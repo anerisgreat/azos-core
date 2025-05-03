@@ -16,7 +16,7 @@ Flycheck is for syntax checking. Mode-specific configs in their relevant section
 #+begin_src emacs-lisp
 (use-package flycheck
   :config
-    (global-flycheck-mode 1)
+  (global-flycheck-mode 1)
 )
 #+end_src
 
@@ -118,8 +118,22 @@ Integration with flycheck
 
 ** Rust
 
+Based off config seen here:
+https://www.reddit.com/r/emacs/comments/kkk3ol/flycheck_emacs_setup_for_rust_compiler_warnings/
+
 #+begin_src emacs-lisp
-(use-package rust-mode)
+(use-package toml-mode)
+(use-package rust-mode
+    :hook (rust-mode . lsp))
+
+(use-package cargo
+  :hook (rust-mode . cargo-minor-mode))
+
+(add-hook 'rust-mode-hook #'aggressive-indent-mode)
+
+(setq lsp-rust-server 'rust-analyzer)
+(use-package flycheck-rust
+    :config (add-hook 'flycheck-mode-hook #'flycheck-rust-setup))
 #+end_src
 
 ** Jupyter (ein)
