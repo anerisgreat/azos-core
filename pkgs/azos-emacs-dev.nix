@@ -15,6 +15,8 @@ orgTrivialBuild {
         nix-mode
         python
         rust-mode
+        toml-mode
+        flycheck-rust
         ein
         ob-async
         pkgs.azos.emacs.base
