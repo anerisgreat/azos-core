@@ -12,6 +12,6 @@ in
   ];
 
   config = lib.mkIf isEnabled {
-    home.packages = [ pkgs.azos.tex ];
+    home.packages = [ pkgs.azos-tex ];
   };
 }

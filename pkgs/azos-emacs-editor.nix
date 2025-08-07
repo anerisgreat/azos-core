@@ -8,7 +8,7 @@ orgTrivialBuild {
     version = "0.1.6";
     src = ./elisp/azos-emacs-editor.org;
     packageRequires = with epkgs; [
-        pkgs.azos.emacs.base
+        pkgs.azos-emacs-base
 
         graphviz-dot-mode
         markdown-mode

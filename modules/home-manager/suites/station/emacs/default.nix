@@ -12,7 +12,7 @@ in
 
     azos.emacs.enabledSuites = [localPkgName];
 
-    azos.emacs.pkgs = [pkgs.azos.emacs.station];
+    azos.emacs.pkgs = [pkgs.azos-emacs-station];
   };
 
 }

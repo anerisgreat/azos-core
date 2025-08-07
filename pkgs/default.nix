@@ -30,12 +30,12 @@ let
   localEmacsPkg = (src: pkgs.callPackage src { orgTrivialBuild = orgTrivialBuild; epkgs = epkgs; pkgs = pkgs; });
 in
 {
-  azos.emacs.orgTrivialBuild = orgTrivialBuild;
-  azos.emacs.base = localEmacsPkg ./azos-emacs-base.nix;
-  azos.emacs.editor = localEmacsPkg ./azos-emacs-editor.nix;
-  azos.emacs.dev = localEmacsPkg ./azos-emacs-dev.nix;
-  azos.emacs.station = localEmacsPkg ./azos-emacs-station.nix;
-  azos.emacs.exwm = localEmacsPkg ./azos-emacs-exwm.nix;
-  azos.tex = pkgs.callPackage ./azos-tex.nix { pkgs = pkgs; };
+  azos-emacs-orgTrivialBuild = orgTrivialBuild;
+  azos-emacs-base = localEmacsPkg ./azos-emacs-base.nix;
+  azos-emacs-editor = localEmacsPkg ./azos-emacs-editor.nix;
+  azos-emacs-dev = localEmacsPkg ./azos-emacs-dev.nix;
+  azos-emacs-station = localEmacsPkg ./azos-emacs-station.nix;
+  azos-emacs-exwm = localEmacsPkg ./azos-emacs-exwm.nix;
+  azos-tex = pkgs.callPackage ./azos-tex.nix { pkgs = pkgs; };
   # azos.fetchmail = pkgs.callPackage ./azos-fetchmail.nix { pkgs = pkgs; };
 }

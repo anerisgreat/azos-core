@@ -12,7 +12,7 @@ in
     azos.emacs.enabledSuites = [localPkgName];
 
     #Base emacs suite definition
-    azos.emacs.pkgs = [pkgs.azos.emacs.exwm];
+    azos.emacs.pkgs = [pkgs.azos-emacs-exwm];
 
     # home.file.".xinitrc".text = ''exec emacs'';
   };

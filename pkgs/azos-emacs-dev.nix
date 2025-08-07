@@ -19,7 +19,7 @@ orgTrivialBuild {
         flycheck-rust
         ein
         ob-async
-        pkgs.azos.emacs.base
-        pkgs.azos.emacs.editor
+        pkgs.azos-emacs-base
+        pkgs.azos-emacs-editor
     ];
 }

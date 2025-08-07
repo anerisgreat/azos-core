@@ -29,7 +29,7 @@ in
   #Set config
   config = lib.mkIf isEnabled {
     #Base emacs suite definition
-    azos.emacs.pkgs = [pkgs.azos.emacs.base];
+    azos.emacs.pkgs = [pkgs.azos-emacs-base];
 
     azos.emacs.enabledSuites = [localPkgName];
 

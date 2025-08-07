@@ -10,7 +10,7 @@ in
   config = lib.mkIf isEnabled {
 
     #Base emacs suite definition
-    azos.emacs.pkgs = [pkgs.azos.emacs.dev];
+    azos.emacs.pkgs = [pkgs.azos-emacs-dev];
 
     azos.emacs.enabledSuites = [localPkgName];
   };
