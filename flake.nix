@@ -42,6 +42,7 @@
       };
 
       # azos-pkgs-overlay = final: _prev: import ./pkgs {pkgs = final;};
+      azos-pkgs = final: _prev: import ./pkgs;
       overlays = import ./overlays {inherit inputs;};
 
       # overlays = rec {
