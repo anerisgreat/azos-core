@@ -38,5 +38,5 @@ in
   azos-emacs-exwm = localEmacsPkg ./azos-emacs-exwm.nix;
   azos-tex = pkgs.callPackage ./azos-tex.nix { pkgs = pkgs; };
   localEmacsPkg = localEmacsPkg;
-  # azos.fetchmail = pkgs.callPackage ./azos-fetchmail.nix { pkgs = pkgs; };
+  # azos.fetchmail = pkgs.callPackage ./azos-fetchmail.nix { pkgs = 
 }

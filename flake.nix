@@ -11,29 +11,7 @@
     ...
   } @ inputs: let
     inherit (nixpkgs) lib;
-
-    eachDefaultEnvironment = f:
-      flake-utils.lib.eachDefaultSystem
-      (
-        system:
-          f {
-            inherit system;
-            pkgs = import nixpkgs {
-              inherit system;
-              # You likely (but not necessarily) want the default overlay from your flake here
-              # overlays = [self.overlays.default];
-            };
-          }
-      );
   in
-
-    # # Per system outputs:
-    # eachDefaultEnvironment ({ system, pkgs }: {
-    #   azos-packages = ((import ./pkgs) {pkgs = pkgs ;} );
-    # });
-
-
-    # Generic outputs:
     {
 
       nixosModules = rec {
@@ -41,14 +19,6 @@
         nixosModules = import ./modules/nixos;
       };
 
-      # azos-pkgs-overlay = final: _prev: import ./pkgs {pkgs = final;};
-      # azos-pkgs = final: _prev: import ./pkgs;
       overlays = import ./overlays {inherit inputs;};
-
-      # overlays = rec {
-      #   azos-pkgs = import ./pkgs;
-      #   default = final: prev:
-      #     lib.composeManyExtensions [ azos-pkgs ] final prev;
-      # };
     };
 }

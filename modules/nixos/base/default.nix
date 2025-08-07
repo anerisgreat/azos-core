@@ -1,7 +1,6 @@
 { lib, config, pkgs, options, azos-utils, ... }:
 {
   config = {
-
     services.xserver = {
         enable = true;
         autorun = false;
