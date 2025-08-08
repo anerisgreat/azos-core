@@ -1,3 +1,3 @@
 {
-  imports = [ ./suites ];
+  imports = [./suites];
 }

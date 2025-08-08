@@ -1,12 +1,16 @@
-{ lib, config, pkgs, azos-utils, ... }:
-let
+{
+  lib,
+  config,
+  pkgs,
+  azos-utils,
+  ...
+}: let
   isEnabled =
     config.azos.tex.enable && config.azos.suites.editor.enable;
-in
-{
-  options.azos.tex.enable = (azos-utils.mkFeatureEnableOption {});
+in {
+  options.azos.tex.enable = azos-utils.mkFeatureEnableOption {};
 
-  options.azos.tex.pkgs = lib.mkOption{
+  options.azos.tex.pkgs = lib.mkOption {
     default = [];
     description = "List of packages for tex.";
   };
@@ -35,6 +39,4 @@ in
 
   imports = [
   ];
-
-
 }

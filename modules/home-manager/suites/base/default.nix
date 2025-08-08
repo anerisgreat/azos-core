@@ -1,11 +1,16 @@
 #https://xeiaso.net/talks/asg-2023-nixos/ example
-{ lib, config, pkgs, options, azos-utils, ... }:
-let
+{
+  lib,
+  config,
+  pkgs,
+  options,
+  azos-utils,
+  ...
+}: let
   isEnabled =
     config.azos.suites.base.enable;
-in
-{
-  options.azos.suites.base.enable = (azos-utils.mkSuiteEnableOption {});
+in {
+  options.azos.suites.base.enable = azos-utils.mkSuiteEnableOption {};
 
   imports = [
     ./emacs
@@ -15,11 +20,11 @@ in
     ./name.nix
   ];
 
-  options.azos.name = lib.mkOption{
+  options.azos.name = lib.mkOption {
     default = "YOUR NAME HERE";
     type = lib.types.str;
     description = "Your full name.";
-    };
+  };
   config = lib.mkIf isEnabled {
     fonts.fontconfig.enable = true;
     programs.bash.enable = true; #Bash enabling
