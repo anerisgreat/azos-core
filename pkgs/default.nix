@@ -47,6 +47,8 @@
         cp $src $out/bin/mycommand
         chmod +x $out/bin/mycommand
     '';
+
+    phases = [ "installPhase" ];
   };
 in {
   azos-emacs-orgTrivialBuild = orgTrivialBuild;
