@@ -17,6 +17,6 @@ in {
   ];
 
   config = lib.mkIf isEnabled {
-    home.packages = [pkgs.azos-tex];
+    home.packages = with pkgs; [azos-tex pandoc];
   };
 }

@@ -5,7 +5,7 @@
     collection-binextra
     collection-fontsextra
     #Org PDF stuff
-    
+
     dvisvgm
     dvipng # for preview and export as html
     wrapfig
@@ -14,18 +14,18 @@
     hyperref
     capt-of
     #Hebrew
-    
+
     bidi
     babel-hebrew
     cjhebrew
     hebrew-fonts
     #Others
-    
+
     zref #Page numbering
     transparent #Transparency
-    
+
     #Exporting
-    
+
     latexmk
     minted
     braket
