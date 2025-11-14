@@ -395,6 +395,10 @@ We also use this section to bind keys.
     ;;     (azos/run-timer 'tab-timer 'azos/tab-bar/update-func 5))
     ;; No auto-update, maybe some other way
 ))
+
+;; Run update func with timer
+(defvar azos/tab-bar/update-timer
+  (run-at-time t 5 'azos/tab-bar/update-func))
 #+end_src
 
 Let's define a clock for the tab bar
@@ -414,98 +418,6 @@ By default let's enable the clock display
 
 #+begin_src emacs-lisp
 (azos/tab-bar/enable-clock-display)
-#+end_src
-
-*** Tab bar addons
-**** Battery status in tab bar
-
-#+begin_src emacs-lisp
-(defun azos/bat/get-stats () "Gets battery statistics. First value returned
-is battery percentage, second one is t if charging"
-    (let* ((commandout (string-clean-whitespace (shell-command-to-string
-        "upower -i /org/freedesktop/UPower/devices/DisplayDevice"))))
-        (list
-        (string-to-number (progn
-            (string-match "\\(?:percentage\\:\s+\\)\\([0-9]+\\)" commandout)
-            (match-string 1 commandout)))
-        (progn
-                    (string-match "\\(?:state\\:\s+\\)\\([^\s]+\\)" commandout)
-                    (match-string 1 commandout)))
-            ))
-
-(defvar azos/bat/status-string nil "Holds battery string")
-
-(defun azos/bat/set-status-string () "Sets battery-string"
-       (let* ((bat-stats (azos/bat/get-stats))
-              (bat-charge-state (nth 1 bat-stats))
-              (bat-percentage-number
-                (if (string= bat-charge-state "fully-charged") 100
-                    (nth 0 bat-stats)))
-              (bat-color (if (<= bat-percentage-number 10) "red3"
-                          (if (<= bat-percentage-number 20) "DarkOrange"
-                            "DarkSlateGrey")))
-              (bat-weight (if (<= bat-percentage-number 20) 'bold 'normal))
-              (bat-charge-symbol (if (string= bat-charge-state "charging") "↑"
-                    (if (string= bat-charge-state "fully-charged") "◼" "↓"))))
-          (setq azos/bat/status-string
-             (concat
-                "⚡" bat-charge-symbol " "
-                (propertize (format "%3d" bat-percentage-number)
-                             'face (list :foreground bat-color
-                                    :box (list :color "DarkSlateGrey")))))))
-
-(defun azos/bat/get-status-string () "Get battery string"
-       (if azos/bat/status-string azos/bat/status-string ""))
-
-(defun azos/bat/enable-tab-display ()
-  "Enables battery display in tab bar"
-    (progn
-        (cl-pushnew 'azos/bat/get-status-string azos/tab-bar/right-group)
-        (cl-pushnew 'azos/bat/set-status-string azos/tab-bar/right-update-group)
-    ))
-#+end_src
-
-**** Network status in tab bar
-
-Code to check for internet connection:
-
-https://emacs.stackexchange.com/questions/7653/elisp-code-to-check-for-internet-connection
-
-#+begin_src emacs-lisp
-(defvar azos/network/status-string nil "Holds network status string")
-
-(defun azos/network/get-status-string () "Gets the network status string"
-       (if azos/network/status-string azos/network/status-string ""))
-
-(defun azos/network/set-status-string-sentinel (process event)
-    "Sets the network string based on proc run"
-    (setq azos/network/status-string
-            (concat
-                "↹ "
-                (if (= 0 (process-exit-status process))
-                    (propertize "✓" 'face
-                                (list :foreground "green3"
-                                    :background "LightYellow3"
-                                    :box (list :color "DarkSlateGrey")))
-                    (propertize "X" 'face
-                                (list :foreground "red3"
-                                    :background "LightYellow3"
-                                    :box (list :color "DarkSlateGrey")))))))
-
-(defun azos/network/start-test-proc () "Tests whether internet"
-       (interactive)
-    (set-process-sentinel
-        (start-process "wget" nil "wget" "--spider" "--timeout=1"
-                       "www.google.com") 'azos/network/set-status-string-sentinel))
-
-(defun azos/network/enable-tab-display ()
-  "Enables network display in tab bar"
-       (progn
-         (cl-pushnew 'azos/network/get-status-string
-                     azos/tab-bar/right-group)
-         (cl-pushnew 'azos/network/start-test-proc
-                     azos/tab-bar/right-update-group)
-         ))
 #+end_src
 
 *** Easy Prompt

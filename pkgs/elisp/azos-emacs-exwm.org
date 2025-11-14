@@ -239,18 +239,18 @@ https://gist.github.com/ajyoon/5323b999a01dce8db2d4456da1740fe3
             (kbd "<XF86AudioRaiseVolume>")
             (lambda ()
                 (interactive) (start-process
-                    "pactl" nil "pactl" "set-sink-volume" "0" "+5%")))
+                    "pactl" nil "pactl" "set-sink-volume" "@DEFAULT_SINK@" "+5%")))
         (exwm-input-set-key
             (kbd "<XF86AudioLowerVolume>")
             (lambda ()
                 (interactive) (start-process
-                    "pactl" nil "pactl" "set-sink-volume" "0" "-5%")))
+                    "pactl" nil "pactl" "set-sink-volume" "@DEFAULT_SINK@" "-5%")))
 
         (exwm-input-set-key
             (kbd "<XF86AudioMute>")
                 (lambda ()
                     (interactive) (start-process
-                        "pactl" nil "pactl" "set-sink-mute" "0" "toggle")))
+                        "pactl" nil "pactl" "set-sink-mute" "@DEFAULT_SINK@" "toggle")))
 
         (exwm-input-set-key
             (kbd "<XF86AudioPlay>")
@@ -340,6 +340,210 @@ new process, should it be displayed in a new buffer/tab.
                              new-entry)
                 (apply 'start-process name nil proc
                         args))))))
+#+end_src
+
+** Tab bar addons
+*** Volume
+
+#+begin_src emacs-lisp
+(defun azos/audio/pulseaudio-volume ()
+  "Return the current default‑sink volume as a clean string, e.g. \"45%\"."
+  (let* ((raw (shell-command-to-string
+               "pactl get-sink-volume @DEFAULT_SINK@ | \
+awk -F'[/%]' '{print $2}'"))
+         (clean (string-trim raw)))
+    (string-to-number clean)))
+
+(defun azos/audio/pulseaudio-muted ()
+  "Return non‑nil if the current default PulseAudio sink is muted.
+Uses `pactl' (part of the PulseAudio utilities).  If `pactl' is not
+available or the query fails, the function signals an error."
+  (let* ((cmd   "pactl")
+         (args  '("get-sink-mute" "@DEFAULT_SINK@"))
+         (output (with-temp-buffer
+                   (let ((exit (apply #'call-process cmd nil t nil args)))
+                     (unless (eq exit 0)
+                       (error "Failed to run %s %s (exit %d)" cmd (string-join args " ") exit))
+                     (buffer-string)))))
+    ;; `pactl get-sink-mute @DEFAULT_SINK@` prints either:
+    ;;   "Mute: yes\n"   or   "Mute: no\n"
+    (cond
+     ((string-match-p "^Mute: +yes" output) t)
+     ((string-match-p "^Mute: +no"  output) nil)
+     (t (error "Unrecognised pactl output: %S" output)))))
+
+
+(defun azos/audio/default-pulseaudio-sink-name ()
+  "Return the name of the current default sink (a string).
+Signal an error if `pactl' cannot be run or the name cannot be parsed."
+  (let ((out (with-temp-buffer
+               (let ((exit (call-process "pactl" nil t nil "get-default-sink")))
+                 (unless (eq exit 0)
+                   (error "pactl get-default-sink failed with exit %d" exit))
+                 (string-trim (buffer-string))))))
+    (if (string-empty-p out)
+        (error "Empty default‑sink name")
+      out)))
+
+(defun azos/audio/pulseaudio-default-sink-active-port ()
+  "Return the active port string of the current default sink.
+Example: \"analog-output-headphones\".  Signal an error on failure."
+  (let* ((sink (azos/audio/default-pulseaudio-sink-name))
+         (cmd  "pactl")
+         (args (list "list" "sinks"))
+         (output (with-temp-buffer
+                   (let ((exit (apply #'call-process cmd nil t nil args)))
+                     (unless (eq exit 0)
+                       (error "pactl %s failed (exit %d)" (string-join args " ") exit))
+                     (buffer-string)))))
+    ;; Find the block that belongs to the default sink.
+    (let ((case-fold-search t)   ; be tolerant to capitalisation
+          (re-sink (format "^\\s-*Name: %s\\s-*$" (regexp-quote sink)))
+          (found nil)
+          port)
+      (with-temp-buffer
+        (insert output)
+        (goto-char (point-min))
+        (while (and (not found) (re-search-forward re-sink nil t))
+          ;; We are at the line with the sink name; now scan forward
+          ;; until we hit either another “Name:” line or EOF.
+          (let ((start (point)))
+            (if (re-search-forward "^\\s-*Name:" nil t)
+                (goto-char (match-beginning 0))
+              (goto-char (point-max)))
+            (let ((block (buffer-substring-no-properties start (point))))
+              (when (string-match "^\\s-*Active Port: \\([^ \n]+\\)" block)
+                (setq port (match-string 1 block)
+                      found t))))))
+      (unless found
+        (error "Could not locate active‑port for sink %s" sink))
+      port)))
+
+
+(defun azos/audio/pulseaudio-port-icon ()
+  "Return a Unicode icon that represents the active port of the
+default PulseAudio sink."
+  (let ((port (azos/audio/pulseaudio-default-sink-active-port))) ; ← the function you already have
+    (cond
+     ;; Head‑set / headphones – case‑insensitive
+     ((string-match-p "headset\\|headphone" port) "🎧")
+     ;; Speakers – also case‑insensitive
+     ((string-match-p "speaker" port)          "🔊")
+     ;; Fallback: just show the raw port name
+     (t port))))
+
+(defvar azos/audio/status-string nil "Holds audio string")
+
+(defun azos/audio/set-status-string ()
+  "Returns a Unicode icon that represents the mute state of the
+default Pulseaudio sink."
+    (setq azos/audio/status-string (concat
+     (azos/audio/pulseaudio-port-icon)
+     (if (azos/audio/pulseaudio-muted) "  🔇" (format "%3d" (azos/audio/pulseaudio-volume)))
+     )
+    ))
+
+(defun azos/audio/get-status-string () "Get audio string"
+       (if azos/audio/status-string azos/audio/status-string ""))
+
+(defun azos/audio/enable-tab-display ()
+  "Enables battery display in tab bar"
+    (progn
+        (cl-pushnew 'azos/audio/get-status-string azos/tab-bar/right-group)
+        (cl-pushnew 'azos/audio/set-status-string azos/tab-bar/right-update-group)
+    ))
+
+#+end_src
+
+*** Battery status in tab bar
+
+#+begin_src emacs-lisp
+(defun azos/bat/get-stats () "Gets battery statistics. First value returned
+is battery percentage, second one is t if charging"
+    (let* ((commandout (string-clean-whitespace (shell-command-to-string
+        "upower -i /org/freedesktop/UPower/devices/DisplayDevice"))))
+        (list
+        (string-to-number (progn
+            (string-match "\\(?:percentage\\:\s+\\)\\([0-9]+\\)" commandout)
+            (match-string 1 commandout)))
+        (progn
+                    (string-match "\\(?:state\\:\s+\\)\\([^\s]+\\)" commandout)
+                    (match-string 1 commandout)))
+            ))
+
+(defvar azos/bat/status-string nil "Holds battery string")
+
+(defun azos/bat/set-status-string () "Sets battery-string"
+       (let* ((bat-stats (azos/bat/get-stats))
+              (bat-charge-state (nth 1 bat-stats))
+              (bat-percentage-number
+                (if (string= bat-charge-state "fully-charged") 100
+                    (nth 0 bat-stats)))
+              (bat-color (if (<= bat-percentage-number 10) "red3"
+                          (if (<= bat-percentage-number 20) "DarkOrange"
+                            "DarkSlateGrey")))
+              (bat-weight (if (<= bat-percentage-number 20) 'bold 'normal))
+              (bat-charge-symbol (if (string= bat-charge-state "charging") "↑"
+                    (if (string= bat-charge-state "fully-charged") "🔋" "↓"))))
+          (setq azos/bat/status-string
+             (concat
+                "⚡" bat-charge-symbol " "
+                (propertize (format "%3d" bat-percentage-number)
+                             'face (list :foreground bat-color
+                                    :box (list :color "DarkSlateGrey")))))))
+
+(defun azos/bat/get-status-string () "Get battery string"
+       (if azos/bat/status-string azos/bat/status-string ""))
+
+(defun azos/bat/enable-tab-display ()
+  "Enables battery display in tab bar"
+    (progn
+        (cl-pushnew 'azos/bat/get-status-string azos/tab-bar/right-group)
+        (cl-pushnew 'azos/bat/set-status-string azos/tab-bar/right-update-group)
+    ))
+#+end_src
+
+*** Network status in tab bar
+
+Code to check for internet connection:
+
+https://emacs.stackexchange.com/questions/7653/elisp-code-to-check-for-internet-connection
+
+#+begin_src emacs-lisp
+(defvar azos/network/status-string nil "Holds network status string")
+
+(defun azos/network/get-status-string () "Gets the network status string"
+       (if azos/network/status-string azos/network/status-string ""))
+
+(defun azos/network/set-status-string-sentinel (process event)
+    "Sets the network string based on proc run"
+    (setq azos/network/status-string
+            (concat
+                "↹ "
+                (if (= 0 (process-exit-status process))
+                    (propertize "✓" 'face
+                                (list :foreground "green3"
+                                    :background "LightYellow3"
+                                    :box (list :color "DarkSlateGrey")))
+                    (propertize "X" 'face
+                                (list :foreground "red3"
+                                    :background "LightYellow3"
+                                    :box (list :color "DarkSlateGrey")))))))
+
+(defun azos/network/start-test-proc () "Tests whether internet"
+       (interactive)
+    (set-process-sentinel
+        (start-process "wget" nil "wget" "--spider" "--timeout=1"
+                       "www.google.com") 'azos/network/set-status-string-sentinel))
+
+(defun azos/network/enable-tab-display ()
+  "Enables network display in tab bar"
+       (progn
+         (cl-pushnew 'azos/network/get-status-string
+                     azos/tab-bar/right-group)
+         (cl-pushnew 'azos/network/start-test-proc
+                     azos/tab-bar/right-update-group)
+         ))
 #+end_src
 
 ** EXWM Ending
