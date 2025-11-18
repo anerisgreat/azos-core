@@ -27,7 +27,7 @@
     environment.systemPackages = with pkgs; [
       xdg-utils
       xorg.xinit
-      greetd.tuigreet
+      tuigreet
       xlayoutdisplay
       xorg.xrandr
       xorg.xcbutil
