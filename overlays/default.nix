@@ -3,5 +3,5 @@
   qutebrowserdrm = final: _prev: {
     qutebrowser = _prev.qutebrowser.override {enableWideVine = true;};
   };
-  overrideEmacsPackages = (import ./overrideOrg.nix);
+  overrideEmacsPackages = (import ./overrideEmacsPackages.nix);
 }
