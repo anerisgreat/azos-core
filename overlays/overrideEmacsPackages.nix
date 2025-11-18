@@ -10,7 +10,7 @@ self: super:
           };
         });
     };
-    exwm = super.org.override {
+    exwm = super.exwm.override {
         elpaBuild = args: super.elpaBuild (args // {
           version = "0.34";
           src = super.fetchurl {
