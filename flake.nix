@@ -1,12 +1,9 @@
 {
   inputs = {
-    flake-utils.url = "github:numtide/flake-utils";
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-24.11";
   };
 
   outputs = {
     self,
-    flake-utils,
     nixpkgs,
     ...
   } @ inputs: let
