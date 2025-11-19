@@ -8,12 +8,12 @@
     ...
   } @ inputs: let
     inherit (nixpkgs) lib;
-  in {
+  in rec {
+    overlays = import ./overlays {inherit inputs;};
     nixosModules = rec {
       homeManagerModules = import ./modules/home-manager;
       nixosModules = import ./modules/nixos;
     };
 
-    overlays = import ./overlays {inherit inputs;};
   };
 }
