@@ -43,9 +43,13 @@ in {
     #Global instantiation of Emacs
     programs.emacs = {
       enable = true;
-      package = (pkgs.emacsPackagesFor config.azos.emacs.emacspkg).emacsWithPackages (
+      # package = (pkgs.emacsPackagesFor config.azos.emacs.emacspkg).emacsWithPackages (
+      #   config.azos.emacs.pkgs
+      # );
+      package = ((pkgs.emacsPackagesGen config.azos.emacs.emacspkg).overrideScope' outputs.overlays.overrideEmacsPackagess).emacsWithPackages (
         config.azos.emacs.pkgs
       );
+
       extraConfig =
         (lib.strings.concatStringsSep "\n"
           (builtins.map (s: "(require '" + s + ")\n")
