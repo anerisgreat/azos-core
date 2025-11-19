@@ -46,7 +46,7 @@ in {
       # package = (pkgs.emacsPackagesFor config.azos.emacs.emacspkg).emacsWithPackages (
       #   config.azos.emacs.pkgs
       # );
-      package = ((pkgs.emacsPackagesGen config.azos.emacs.emacspkg).overrideScope' outputs.overlays.overrideEmacsPackagess).emacsWithPackages (
+      package = ((pkgs.emacsPackagesFor config.azos.emacs.emacspkg).overrideScope' outputs.overlays.overrideEmacsPackagess).emacsWithPackages (
         config.azos.emacs.pkgs
       );
 
