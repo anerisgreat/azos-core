@@ -236,21 +236,23 @@ https://gist.github.com/ajyoon/5323b999a01dce8db2d4456da1740fe3
           (push k exwm-input-prefix-keys))
 
         (exwm-input-set-key
-            (kbd "<XF86AudioRaiseVolume>")
-            (lambda ()
-                (interactive) (start-process
-                    "pactl" nil "pactl" "set-sink-volume" "@DEFAULT_SINK@" "+5%")))
+         (kbd "<XF86AudioRaiseVolume>")
+         (lambda ()
+           (interactive)
+           (start-process
+            "wpctl" nil "wpctl" "set-volume" "@DEFAULT_AUDIO_SINK@" "5%+")))
         (exwm-input-set-key
-            (kbd "<XF86AudioLowerVolume>")
-            (lambda ()
-                (interactive) (start-process
-                    "pactl" nil "pactl" "set-sink-volume" "@DEFAULT_SINK@" "-5%")))
-
+         (kbd "<XF86AudioLowerVolume>")
+         (lambda ()
+           (interactive)
+           (start-process
+            "wpctl" nil "wpctl" "set-volume" "@DEFAULT_AUDIO_SINK@" "5%-")))
         (exwm-input-set-key
-            (kbd "<XF86AudioMute>")
-                (lambda ()
-                    (interactive) (start-process
-                        "pactl" nil "pactl" "set-sink-mute" "@DEFAULT_SINK@" "toggle")))
+         (kbd "<XF86AudioMute>")
+         (lambda ()
+           (interactive)
+           (start-process
+            "wpctl" nil "wpctl" "set-mute" "@DEFAULT_AUDIO_SINK@" "toggle")))
 
         (exwm-input-set-key
             (kbd "<XF86AudioPlay>")
@@ -346,89 +348,31 @@ new process, should it be displayed in a new buffer/tab.
 *** Volume
 
 #+begin_src emacs-lisp
-(defun azos/audio/pulseaudio-volume ()
+(defun azos/audio/wpctl-volume-muted ()
   "Return the current default‑sink volume as a clean string, e.g. \"45%\"."
-  (let* ((raw (shell-command-to-string
-               "pactl get-sink-volume @DEFAULT_SINK@ | \
-awk -F'[/%]' '{print $2}'"))
-         (clean (string-trim raw)))
-    (string-to-number clean)))
+  (let* ((output
+          (string-trim
+           (shell-command-to-string "wpctl get-volume @DEFAULT_AUDIO_SINK@")))
+         (value (string-to-number output))
+         (parts (split-string output "\\."))
+         (dec (or (cadr parts) "")))
+    (list (string-to-number dec) (string-match-p "\\[MUTED\\]" output))))
 
-(defun azos/audio/pulseaudio-muted ()
-  "Return non‑nil if the current default PulseAudio sink is muted.
-Uses `pactl' (part of the PulseAudio utilities).  If `pactl' is not
-available or the query fails, the function signals an error."
-  (let* ((cmd   "pactl")
-         (args  '("get-sink-mute" "@DEFAULT_SINK@"))
-         (output (with-temp-buffer
-                   (let ((exit (apply #'call-process cmd nil t nil args)))
-                     (unless (eq exit 0)
-                       (error "Failed to run %s %s (exit %d)" cmd (string-join args " ") exit))
-                     (buffer-string)))))
-    ;; `pactl get-sink-mute @DEFAULT_SINK@` prints either:
-    ;;   "Mute: yes\n"   or   "Mute: no\n"
-    (cond
-     ((string-match-p "^Mute: +yes" output) t)
-     ((string-match-p "^Mute: +no"  output) nil)
-     (t (error "Unrecognised pactl output: %S" output)))))
+(defun azos/audio/default-wpctl-sink-name ()
+  "Return the name of the current default sink (a string)."
+  (shell-command-to-string "wpctl inspect @DEFAULT_AUDIO_SINK@ | grep \"node.name\" | awk -F'\"' '{print $2}'"))
 
 
-(defun azos/audio/default-pulseaudio-sink-name ()
-  "Return the name of the current default sink (a string).
-Signal an error if `pactl' cannot be run or the name cannot be parsed."
-  (let ((out (with-temp-buffer
-               (let ((exit (call-process "pactl" nil t nil "get-default-sink")))
-                 (unless (eq exit 0)
-                   (error "pactl get-default-sink failed with exit %d" exit))
-                 (string-trim (buffer-string))))))
-    (if (string-empty-p out)
-        (error "Empty default‑sink name")
-      out)))
-
-(defun azos/audio/pulseaudio-default-sink-active-port ()
-  "Return the active port string of the current default sink.
-Example: \"analog-output-headphones\".  Signal an error on failure."
-  (let* ((sink (azos/audio/default-pulseaudio-sink-name))
-         (cmd  "pactl")
-         (args (list "list" "sinks"))
-         (output (with-temp-buffer
-                   (let ((exit (apply #'call-process cmd nil t nil args)))
-                     (unless (eq exit 0)
-                       (error "pactl %s failed (exit %d)" (string-join args " ") exit))
-                     (buffer-string)))))
-    ;; Find the block that belongs to the default sink.
-    (let ((case-fold-search t)   ; be tolerant to capitalisation
-          (re-sink (format "^\\s-*Name: %s\\s-*$" (regexp-quote sink)))
-          (found nil)
-          port)
-      (with-temp-buffer
-        (insert output)
-        (goto-char (point-min))
-        (while (and (not found) (re-search-forward re-sink nil t))
-          ;; We are at the line with the sink name; now scan forward
-          ;; until we hit either another “Name:” line or EOF.
-          (let ((start (point)))
-            (if (re-search-forward "^\\s-*Name:" nil t)
-                (goto-char (match-beginning 0))
-              (goto-char (point-max)))
-            (let ((block (buffer-substring-no-properties start (point))))
-              (when (string-match "^\\s-*Active Port: \\([^ \n]+\\)" block)
-                (setq port (match-string 1 block)
-                      found t))))))
-      (unless found
-        (error "Could not locate active‑port for sink %s" sink))
-      port)))
-
-
-(defun azos/audio/pulseaudio-port-icon ()
+(defun azos/audio/wpctl-port-icon ()
   "Return a Unicode icon that represents the active port of the
-default PulseAudio sink."
-  (let ((port (azos/audio/pulseaudio-default-sink-active-port))) ; ← the function you already have
+default WPCTL sink."
+  (let ((port (azos/audio/default-wpctl-sink-name))) ; ← the function you already have
     (cond
      ;; Head‑set / headphones – case‑insensitive
      ((string-match-p "headset\\|headphone" port) "🎧")
      ;; Speakers – also case‑insensitive
      ((string-match-p "speaker" port)          "🔊")
+     ((string-match-p "analog" port)          "🔊")
      ;; Fallback: just show the raw port name
      (t port))))
 
@@ -436,12 +380,17 @@ default PulseAudio sink."
 
 (defun azos/audio/set-status-string ()
   "Returns a Unicode icon that represents the mute state of the
-default Pulseaudio sink."
+default WPCTL sink."
+  (let* (
+         (volstats (azos/audio/wpctl-volume-muted))
+         (volume (car volstats))
+         (ismute (car (cdr volstats)))
+         )
     (setq azos/audio/status-string (concat
-     (azos/audio/pulseaudio-port-icon)
-     (if (azos/audio/pulseaudio-muted) "  🔇" (format "%3d" (azos/audio/pulseaudio-volume)))
+     (azos/audio/wpctl-port-icon)
+     (if ismute "  🔇" (format "%3d" volume))
      )
-    ))
+    )))
 
 (defun azos/audio/get-status-string () "Get audio string"
        (if azos/audio/status-string azos/audio/status-string ""))
