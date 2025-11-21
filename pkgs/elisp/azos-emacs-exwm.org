@@ -39,7 +39,7 @@ We execute the following code only if started with EXWM argument
         (run-hooks 'azos/exwm/load-hook)
 
         ;Enable
-        (exwm-randr-enable)
+        (exwm-randr-mode)
         (exwm-enable)
     ))
 #+end_src
