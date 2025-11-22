@@ -370,6 +370,7 @@ default WPCTL sink."
     (cond
      ;; Head‑set / headphones – case‑insensitive
      ((string-match-p "headset\\|headphone" port) "🎧")
+     ((string-match-p "bluez" port) "🎧")
      ;; Speakers – also case‑insensitive
      ((string-match-p "speaker" port)          "🔊")
      ((string-match-p "analog" port)          "🔊")
