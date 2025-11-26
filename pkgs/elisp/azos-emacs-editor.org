@@ -242,5 +242,5 @@ https://karthinks.com/software/scaling-latex-previews-in-emacs/
 
 #+begin_src emacs-lisp
 (provide 'azos-emacs-editor)
-(add-hook 'after-init-hook (lambda () (require 'azos-emacs-editor)))
+;; (add-hook 'after-init-hook (lambda () (require 'azos-emacs-editor)))
 #+end_src

@@ -295,5 +295,5 @@ https://github.com/karthink/elfeed-tube
 
 #+begin_src emacs-lisp
 (provide 'azos-emacs-station)
-(add-hook 'after-init-hook (lambda () (require 'azos-emacs-station)))
+;; (add-hook 'after-init-hook (lambda () (require 'azos-emacs-station)))
 #+end_src

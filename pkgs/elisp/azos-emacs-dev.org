@@ -175,5 +175,5 @@ https://www.reddit.com/r/emacs/comments/kkk3ol/flycheck_emacs_setup_for_rust_com
 
 #+begin_src emacs-lisp
 (provide 'azos-emacs-dev)
-(add-hook 'after-init-hook (lambda () (require 'azos-emacs-dev)))
+;; (add-hook 'after-init-hook (lambda () (require 'azos-emacs-dev)))
 #+end_src

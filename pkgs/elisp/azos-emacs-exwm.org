@@ -509,5 +509,5 @@ End the execute only if EXWM block.
 
 #+begin_src emacs-lisp
 (provide 'azos-emacs-exwm)
-(add-hook 'after-init-hook (lambda () (require 'azos-emacs-exwm)))
+;; (add-hook 'after-init-hook (lambda () (require 'azos-emacs-exwm)))
 #+end_src

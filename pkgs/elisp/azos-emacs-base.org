@@ -1233,6 +1233,6 @@ Snippet for src blocks
 
 #+begin_src emacs-lisp
 (provide 'azos-emacs-base)
-(add-hook 'after-init-hook (lambda () (require 'azos-emacs-base)))
+;; (add-hook 'after-init-hook (lambda () (require 'azos-emacs-base)))
 #+end_src
 
