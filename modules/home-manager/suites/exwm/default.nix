@@ -22,7 +22,7 @@ in {
     home.packages = with pkgs; [];
     home.file.".xinitrc" = {
       text = ''
-        exec emacs --start-exwm
+        exec emacs
       '';
     };
   };
