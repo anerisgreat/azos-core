@@ -1191,7 +1191,7 @@ Snippet for src blocks
         dashboard-startup-banner 'ascii
         dashboard-banner-ascii "azos")
   (add-to-list 'evil-emacs-state-modes 'dashboard-mode)
-  (dashboard-setup-startup-hook)
+  ;; (dashboard-setup-startup-hook)
 
   )
 #+end_src
