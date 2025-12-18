@@ -1184,13 +1184,14 @@ Snippet for src blocks
   :config
   (setq
         dashboard-items '((recents  . 5)
-                          (bookmarks . 5)
-                          (projects . 5))
+                          (bookmarks . 5))
+                          ;; (projects . 5))
         dashboard-center-content t
         dashboard-banner-logo-title nil
         dashboard-startup-banner 'ascii
         dashboard-banner-ascii "azos")
   (add-to-list 'evil-emacs-state-modes 'dashboard-mode)
+  (dashboard-setup-startup-hook)
 
   )
 #+end_src
@@ -1226,6 +1227,12 @@ Snippet for src blocks
     :config
     (evil-collection-bookmark-setup)
 )
+#+end_src
+
+** Recent files
+
+#+begin_src emacs-lisp
+(add-to-list 'recentf-exclude "^/nix/store")
 #+end_src
 
 * Provide
