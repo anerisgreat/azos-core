@@ -382,16 +382,16 @@ default WPCTL sink."
 (defun azos/audio/set-status-string ()
   "Returns a Unicode icon that represents the mute state of the
 default WPCTL sink."
-  (let* (
-         (volstats (azos/audio/wpctl-volume-muted))
-         (volume (car volstats))
-         (ismute (car (cdr volstats)))
-         )
-    (setq azos/audio/status-string (concat
-     (azos/audio/wpctl-port-icon)
-     (if ismute "  🔇" (format "%3d" volume))
-     )
-    )))
+  (setq azos/audio/status-string (with-timeout (0.2 nil)
+    (let* (
+            (volstats (azos/audio/wpctl-volume-muted))
+            (volume (car volstats))
+            (ismute (car (cdr volstats)))
+            )
+        (concat
+            (azos/audio/wpctl-port-icon)
+            (if ismute "  🔇" (format "%3d" volume))
+        )))))
 
 (defun azos/audio/get-status-string () "Get audio string"
        (if azos/audio/status-string azos/audio/status-string ""))
