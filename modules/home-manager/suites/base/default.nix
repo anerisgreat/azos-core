@@ -20,14 +20,21 @@ in {
     ./name.nix
   ];
 
-  options.azos.name = lib.mkOption {
-    default = "YOUR NAME HERE";
-    type = lib.types.str;
-    description = "Your full name.";
+  options.azos = {
+        name = lib.mkOption {
+            default = "YOUR NAME HERE";
+            type = lib.types.str;
+            description = "Your full name.";
+        };
+        enableBashInstall = lib.mkOption {
+            default = true;
+            type = lib.types.bool;
+            description = "Whether to enable bash install.";
+        };
   };
   config = lib.mkIf isEnabled {
     fonts.fontconfig.enable = true;
-    programs.bash.enable = true; #Bash enabling
+    programs.bash.enable = config.azos.enableBashInstall; #Bash enabling
     home.packages = with pkgs; [
       wget
       curl
