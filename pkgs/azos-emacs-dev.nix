@@ -21,5 +21,6 @@ orgTrivialBuild {
     ob-async
     pkgs.azos-emacs-base
     pkgs.azos-emacs-editor
+    irony
   ];
 }
