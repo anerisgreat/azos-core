@@ -29,5 +29,6 @@ orgTrivialBuild {
     dashboard
     vterm
     load-dir
+    direnv
   ];
 }

@@ -1235,6 +1235,15 @@ Snippet for src blocks
 (add-to-list 'recentf-exclude "^/nix/store")
 #+end_src
 
+** Direnv
+
+#+begin_src emacs-lisp
+(use-package direnv
+  :ensure t
+  :config
+  (direnv-mode))          ; global minor mode
+#+end_src
+
 * Provide
 
 #+begin_src emacs-lisp
