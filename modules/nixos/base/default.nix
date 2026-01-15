@@ -5,8 +5,13 @@
   options,
   azos-utils,
   ...
-}: {
-  config = {
+}: let
+   isEnabled =
+        config.azos.nixos.greetd-startx.enable;
+in {
+  options.azos.nixos.greetd-startx.enable = azos-utils.mkFeatureEnableOption {};
+
+  config = lib.mkIf isEnabled {
     services.xserver = {
       enable = true;
       autorun = false;

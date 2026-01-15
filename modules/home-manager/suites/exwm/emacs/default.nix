@@ -16,7 +16,5 @@ in {
 
     #Base emacs suite definition
     azos.emacs.pkgs = [pkgs.azos-emacs-exwm];
-
-    # home.file.".xinitrc".text = ''exec emacs'';
   };
 }
