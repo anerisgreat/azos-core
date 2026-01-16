@@ -5,13 +5,8 @@
   options,
   azos-utils,
   ...
-}: let
-   isEnabled =
-        config.azos.nixos.greetd-startx.enable;
-in {
-  options.azos.nixos.greetd-startx.enable = azos-utils.mkFeatureEnableOption {};
-
-  config = lib.mkIf isEnabled {
+}: {
+  config = {
     services.xserver = {
       enable = true;
       autorun = false;
@@ -23,7 +18,7 @@ in {
       enable = true;
       settings = {
         default_session = {
-          command = "${pkgs.tuigreet}/bin/tuigreet --time --user-menu --cmd ${pkgs.xorg.xinit}/bin/startx";
+          command = "${pkgs.tuigreet}/bin/tuigreet --time --user-menu --cmd /home/%u/login.sh";
           user = "greeter";
         };
       };

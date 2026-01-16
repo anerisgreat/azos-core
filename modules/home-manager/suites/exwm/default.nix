@@ -25,5 +25,15 @@ in {
         exec emacs
       '';
     };
+
+    home.file.".login.sh" = {
+      text = ''
+        #!/usr/bin/env bash
+        ${pkgs.xorg.xinit}/bin/startx
+      '';
+      #Make executable
+      executable = true;
+    };
+
   };
 }
