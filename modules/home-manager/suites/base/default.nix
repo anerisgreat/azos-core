@@ -52,7 +52,7 @@ in {
       dina-font
 
       #My timer!
-      inputs.cabata.defaultPackage
+      cabata.defaultPackage
     ];
   };
 }
