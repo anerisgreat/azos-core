@@ -1,5 +1,4 @@
 {
-  inputs,
   lib,
   config,
   pkgs,
@@ -50,9 +49,8 @@ in {
       fira-code-symbols
       mplus-outline-fonts.githubRelease
       dina-font
-
-      #My timer!
-      inputs.cabata.defaultPackage
+      #My timer
+      cabata
     ];
   };
 }

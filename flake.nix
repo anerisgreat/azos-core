@@ -8,6 +8,7 @@
   outputs = {
     self,
     nixpkgs,
+    cabata,
     ...
   } @ inputs: let
     inherit (nixpkgs) lib;
@@ -16,6 +17,9 @@
     nixosModules = rec {
       homeManagerModules = import ./modules/home-manager;
       nixosModules = import ./modules/nixos;
+    };
+    specialArgs = {
+      inherit cabata;
     };
 
   };

@@ -1,4 +1,4 @@
-{pkgs} @ args: let
+{pkgs, inputs} @ args: let
   inherit args;
   emacs-pkg = pkgs.emacs;
   epkgs = emacs-pkg.pkgs;
@@ -61,4 +61,7 @@ in {
   localEmacsPkg = localEmacsPkg;
   customCommand = customCommand;
   # azos.fetchmail = pkgs.callPackage ./azos-fetchmail.nix { pkgs =
+
+  #Need to map Cabata here
+  cabata = inputs.cabata.packages.${pkgs.system}.default;
 }
