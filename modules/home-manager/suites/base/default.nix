@@ -1,5 +1,5 @@
-#https://xeiaso.net/talks/asg-2023-nixos/ example
 {
+  inputs,
   lib,
   config,
   pkgs,
@@ -52,7 +52,7 @@ in {
       dina-font
 
       #My timer!
-      cabata.defaultPackage
+      inputs.cabata.defaultPackage
     ];
   };
 }
