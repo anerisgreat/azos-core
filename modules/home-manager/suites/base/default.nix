@@ -50,6 +50,9 @@ in {
       fira-code-symbols
       mplus-outline-fonts.githubRelease
       dina-font
+
+      #My timer!
+      inputs.cabata.defaultPackage
     ];
   };
 }

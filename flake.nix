@@ -1,5 +1,8 @@
 {
   inputs = {
+    cabata = {
+      url = "github:anerisgreat/cabata";
+    };
   };
 
   outputs = {
