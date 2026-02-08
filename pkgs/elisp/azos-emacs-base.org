@@ -1244,6 +1244,45 @@ Snippet for src blocks
   (direnv-mode))          ; global minor mode
 #+end_src
 
+** Cabata
+
+#+begin_src emacs-lisp
+
+(defun azos/tabata/start (n_rounds)
+  "Start tabata with 25/5 split. Read n_rounds if interactive."
+  (interactive
+   ;; Build a list of arguments for the function.
+   (list (if current-prefix-arg
+             (read-number "Number of rounds: ")   ; user supplied a prefix → ask
+           1)))
+
+  ;; Run command cabata start 25 5 n_rounds
+    (let ((cmd (format "cabata start %s %s %s" 25 * 60 5 * 60 n_rounds)))
+      (start-process-shell-command "cabata" nil cmd))
+  )
+
+(defun azos/tabata/stop ()
+  "Stop the tabata timer."
+  (interactive)
+  (start-process-shell-command "cabata" nil "cabata stop"))
+
+(defun azos/tabata/status ()
+  "Get tabata status"
+  (interactive)
+  (start-process-shell-command "cabata" nil "cabata status"))
+
+(defun azos/tabata/quit ()
+  "Quit tabata"
+  (interactive)
+  (start-process-shell-command "cabata" nil "cabata quit"))
+
+;; Map functions to keymap azos/global-minor-mode/open-keymap
+(define-key azos/global-minor-mode/open-keymap (kbd "t s") #'azos/tabata/start)
+(define-key azos/global-minor-mode/open-keymap (kbd "t t") #'azos/tabata/stop)
+(define-key azos/global-minor-mode/open-keymap (kbd "t S") #'azos/tabata/status)
+(define-key azos/global-minor-mode/open-keymap (kbd "t q") #'azos/tabata/quit)
+#+end_src
+
 * Provide
 
 #+begin_src emacs-lisp
