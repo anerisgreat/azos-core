@@ -1247,7 +1247,6 @@ Snippet for src blocks
 ** Cabata
 
 #+begin_src emacs-lisp
-
 (defun azos/tabata/start (n_rounds)
   "Start tabata with 25/5 split. Read n_rounds if interactive."
   (interactive
@@ -1257,7 +1256,7 @@ Snippet for src blocks
            1)))
 
   ;; Run command cabata start 25 5 n_rounds
-    (let ((cmd (format "cabata start %s %s %s" 25 * 60 5 * 60 n_rounds)))
+    (let ((cmd (format "cabata start %s %s %s" (* 60 25) (* 60 5) n_rounds)))
       (start-process-shell-command "cabata" nil cmd))
   )
 
