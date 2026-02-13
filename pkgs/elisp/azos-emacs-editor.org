@@ -149,6 +149,38 @@ This should render Hebrew text.
 \end{hebrew}
 #+end_export
 
+** Shortcuts for exporting
+
+#+begin_src emacs-lisp
+(with-eval-after-load 'org
+  (define-prefix-command 'azos/org/export-map)   ; a small prefix for all export keys
+  (define-key org-mode-map (kbd "C-c e") azos/org/export-map)
+
+  ;;  c-c e h → export to html
+  (define-key azos/org/export-map (kbd "h")
+              #'org-html-export-to-html)
+
+  ;;  c-c e l → export to latex → pdf
+  (define-key azos/org/export-map (kbd "l")
+              #'org-latex-export-to-pdf)
+
+  ;;  c-c e o → export to odt
+  (define-key azos/org/export-map (kbd "o")
+              #'org-odt-export-to-odt)
+
+  ;;  c-c e d → export to docx
+  (define-key azos/org/export-map (kbd "d")
+              #'org-docx-export-to-docx)
+
+  ;;  c-c e d → export to docx
+  (define-key azos/org/export-map (kbd "b")
+              #'org-beamer-export-to-pdf)
+
+  ;;  c-c e a → open the generic export dispatcher
+  (define-key azos/org/export-map (kbd "a")
+              #'org-export-dispatch))
+#+end_src
+
 ** DOCX exporting
 
 Taken from https://www.reddit.com/r/emacs/comments/zjv1gj/org_files_to_docx/
