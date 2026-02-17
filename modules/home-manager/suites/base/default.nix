@@ -49,6 +49,7 @@ in {
       fira-code-symbols
       mplus-outline-fonts.githubRelease
       dina-font
+      zip
       #My timer
       cabata
     ];

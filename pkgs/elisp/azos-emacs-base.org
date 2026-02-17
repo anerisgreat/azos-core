@@ -936,7 +936,9 @@ Need to autoload dired-x for dired-omit
         org-block-end-line
         org-block-begin-line
         org-table
-        org-verbatim)))
+        org-verbatim
+        org-meta-line
+        )))
 
 (use-package org
     :hook
