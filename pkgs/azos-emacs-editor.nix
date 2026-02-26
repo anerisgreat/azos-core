@@ -2,8 +2,8 @@
   orgTrivialBuild,
   epkgs,
   pkgs,
-}: let
-  ghgptel = (epkgs.callPackage epkgs.trivialBuild {
+}:
+let ghgptel = (epkgs.callPackage epkgs.trivialBuild {
       pname = "gptel";
       version = "0.9.9.3";
       src = pkgs.fetchFromGitHub {
