@@ -12,8 +12,8 @@
         rev = "273c0f93958c1ffa85e396717b504903eda36bce"; # Use a specific commit hash for reproducibility
         sha256 = "sha256-gVgdFLi6RGUCD3ZXzOIo5XpTNmP/9xMAO5nyWu1zVlM=";
       };
-    })
-orgTrivialBuild {
+    });
+in orgTrivialBuild {
   pname = "azos-emacs-editor";
   version = "0.1.6";
   src = ./elisp/azos-emacs-editor.org;
