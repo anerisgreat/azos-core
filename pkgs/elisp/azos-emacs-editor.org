@@ -78,7 +78,7 @@ Let's add a TOC
 (defvar azos/llm-keymap
   (make-sparse-keymap))
 
-(define-key azos-global-minor-mode/open-keymap (kbd "a") 'azos-llm-keymap)
+(define-key azos/global-minor-mode/open-keymap (kbd "a") azos-llm-keymap)
 (define-key azos/llm-keymap (kbd "o") #'gptel)
 (define-key azos/llm-keymap (kbd "m") #'gptel-menu)
 (define-key azos/llm-keymap (kbd "c") #'gptel-complete)

@@ -10,7 +10,7 @@ let ghgptel = (epkgs.callPackage epkgs.trivialBuild {
         owner = "karthink";
         repo = "gptel";
         rev = "273c0f93958c1ffa85e396717b504903eda36bce"; # Use a specific commit hash for reproducibility
-        sha256 = "sha256-gVgdFLi6RGUCD3ZXzOIo5XpTNmP/9xMAO5nyWu1zVlM=";
+        sha256 = "sha256-5sdjIiIOJEYzDN9o+iIz0AYdmtbEgbd8uec05BeQhb0=";
       };
     });
 in orgTrivialBuild {

@@ -40,7 +40,7 @@ We execute the following code only if started with EXWM argument
 
         ;Enable
         (exwm-randr-mode)
-        (exwm-enable)
+        (exwm-wm-mode)
     ))
 #+end_src
 
