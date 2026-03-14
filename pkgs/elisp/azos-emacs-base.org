@@ -597,6 +597,7 @@ Taken from [[https://www.emacswiki.org/emacs/LineNumbers][this wiki entry]].
               shell-mode
               term-mode
               ansi-term-mode
+              agent-shell-mode
               magit-mode
               magit-diff-mode
               notmuch-hello

@@ -278,13 +278,13 @@ https://gist.github.com/ajyoon/5323b999a01dce8db2d4456da1740fe3
             (kbd "<XF86MonBrightnessUp>")
                 (lambda ()
                     (interactive) (start-process
-                        "light" nil "light" "-A" "5")))
+                        "light" nil "brightnessctl" "s" "5%+")))
 
         (exwm-input-set-key
             (kbd "<XF86MonBrightnessDown>")
                 (lambda ()
                     (interactive) (start-process
-                        "light" nil "light" "-U" "5")))
+                        "light" nil "brightnessctl" "s" "5%-")))
         )))
 #+end_src
 
@@ -397,7 +397,7 @@ default WPCTL sink."
        (if azos/audio/status-string azos/audio/status-string ""))
 
 (defun azos/audio/enable-tab-display ()
-  "Enables battery display in tab bar"
+  "Enables audio display in tab bar"
     (progn
         (cl-pushnew 'azos/audio/get-status-string azos/tab-bar/right-group)
         (cl-pushnew 'azos/audio/set-status-string azos/tab-bar/right-update-group)
