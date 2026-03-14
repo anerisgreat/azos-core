@@ -90,9 +90,9 @@ Let's add a TOC
 #+begin_src emacs-lisp
 (use-package agent-shell
   :ensure t
-  :ensure-system-package t
   :config
   (evil-define-key 'insert agent-shell-mode-map (kbd "RET") #'newline)
+  (evil-define-key 'insert agent-shell-mode-map (kbd "C-<return>") #'comint-send-input)
   (evil-define-key 'normal agent-shell-mode-map (kbd "RET") #'comint-send-input)
   (add-hook 'diff-mode-hook
             (lambda ()
