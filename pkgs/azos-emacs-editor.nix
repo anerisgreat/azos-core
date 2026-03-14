@@ -27,6 +27,7 @@ in orgTrivialBuild {
     pdf-tools
     pandoc-mode
     ghgptel
+    agent-shell
     (epkgs.callPackage epkgs.trivialBuild {
       pname = "gptel-autocomplete";
       version = "2025-06-18";

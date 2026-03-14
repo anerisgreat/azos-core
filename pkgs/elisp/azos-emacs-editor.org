@@ -85,6 +85,20 @@ Let's add a TOC
 (define-key azos/llm-keymap (kbd "C") #'gptel-accept-completion)
 #+end_src
 
+** Agent Shell
+
+#+begin_src emacs-lisp
+(use-package agent-shell
+  :ensure t
+  :config
+  (evil-define-key 'insert agent-shell-mode-map (kbd "RET") #'newline)
+  (evil-define-key 'normal agent-shell-mode-map (kbd "RET") #'comint-send-input)
+  (add-hook 'diff-mode-hook
+            (lambda ()
+              (when (string-match-p "\\*agent-shell-diff\\*" (buffer-name))
+                (evil-emacs-state)))))
+#+end_src
+
 * ORG
 
 ** PDF exporting
