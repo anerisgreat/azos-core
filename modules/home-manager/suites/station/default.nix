@@ -12,6 +12,12 @@ in {
 
   imports = [
     ./emacs
+    ./browser.nix
+    ./discord.nix
+    ./gimp.nix
+    ./libreoffice.nix
+    ./spotify.nix
+    ./zoom.nix
   ];
 
   config = lib.mkIf isEnabled {
@@ -271,7 +277,6 @@ in {
     '';
 
     home.packages = with pkgs; [
-      qutebrowser
       mpv
       upower
       pass
