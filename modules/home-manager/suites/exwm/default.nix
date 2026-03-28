@@ -34,6 +34,5 @@ in {
       #Make executable
       executable = true;
     };
-
   };
 }

@@ -8,6 +8,12 @@
 (require 'azos-emacs-base)
 #+end_src
 
+* Browser
+
+#+begin_src emacs-lisp
+(setq browse-url-browser-function 'browse-url-xdg-open)
+#+end_src
+
 * Major modes
 
 ** Mail

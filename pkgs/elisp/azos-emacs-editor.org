@@ -71,10 +71,6 @@ Let's add a TOC
 (use-package gptel-autocomplete
   :ensure t)
 
-(use-package gptel-agent
-  :ensure t
-  )
-
 (defvar azos/llm-keymap
   (make-sparse-keymap))
 

@@ -3,12 +3,16 @@
     cabata = {
       url = "github:anerisgreat/cabata";
     };
+    nix-search-cli = {
+      url = "github:peterldowns/nix-search-cli";
+    };
   };
 
   outputs = {
     self,
     nixpkgs,
     cabata,
+    nix-search-cli,
     ...
   } @ inputs: let
     inherit (nixpkgs) lib;
@@ -19,8 +23,7 @@
       nixosModules = import ./modules/nixos;
     };
     specialArgs = {
-      inherit cabata;
+      inherit cabata nix-search-cli;
     };
-
   };
 }

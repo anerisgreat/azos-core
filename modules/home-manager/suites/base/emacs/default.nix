@@ -34,7 +34,6 @@
   #           };
   #       };
   #   };
-
 in {
   options.azos.emacs.enable = azos-utils.mkFeatureEnableOption {
     description = "Enables EMACS installation.";
@@ -71,11 +70,12 @@ in {
       # package = (pkgs.emacsPackagesFor config.azos.emacs.emacspkg).emacsWithPackages (
       #   config.azos.emacs.pkgs
       # );
-      package = (
-        pkgs.emacsPackagesFor config.azos.emacs.emacspkg
-      ).emacsWithPackages (
-        config.azos.emacs.pkgs
-      );
+      package =
+        (
+          pkgs.emacsPackagesFor config.azos.emacs.emacspkg
+        ).emacsWithPackages (
+          config.azos.emacs.pkgs
+        );
 
       extraConfig =
         (lib.strings.concatStringsSep "\n"

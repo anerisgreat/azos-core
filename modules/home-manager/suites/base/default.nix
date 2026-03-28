@@ -20,16 +20,16 @@ in {
   ];
 
   options.azos = {
-        name = lib.mkOption {
-            default = "YOUR NAME HERE";
-            type = lib.types.str;
-            description = "Your full name.";
-        };
-        enableBashInstall = lib.mkOption {
-            default = true;
-            type = lib.types.bool;
-            description = "Whether to enable bash install.";
-        };
+    name = lib.mkOption {
+      default = "YOUR NAME HERE";
+      type = lib.types.str;
+      description = "Your full name.";
+    };
+    enableBashInstall = lib.mkOption {
+      default = true;
+      type = lib.types.bool;
+      description = "Whether to enable bash install.";
+    };
   };
   config = lib.mkIf isEnabled {
     fonts.fontconfig.enable = true;
@@ -52,6 +52,8 @@ in {
       zip
       #My timer
       cabata
+      #nixpkgs search
+      nix-search-cli
     ];
   };
 }
