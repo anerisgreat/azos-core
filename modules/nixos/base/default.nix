@@ -26,13 +26,13 @@
 
     environment.systemPackages = with pkgs; [
       xdg-utils
-      xorg.xinit
+      xinit
       tuigreet
       xlayoutdisplay
-      xorg.xrandr
-      xorg.xcbutil
-      xorg.libxcb
-      xorg.libxcb.dev
+      xrandr
+      libxcb-util
+      libxcb
+      libxcb.dev
     ];
   };
 }

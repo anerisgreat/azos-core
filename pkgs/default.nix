@@ -62,8 +62,8 @@ in {
   azos-emacs-station = localEmacsPkg ./azos-emacs-station.nix;
   azos-emacs-exwm = localEmacsPkg ./azos-emacs-exwm.nix;
   azos-tex = pkgs.callPackage ./azos-tex.nix {pkgs = pkgs;};
-  nix-search-cli = inputs.nix-search-cli.packages.${pkgs.system}.default;
+  nix-search-cli = inputs.nix-search-cli.packages.${pkgs.stdenv.hostPlatform.system}.default;
   localEmacsPkg = localEmacsPkg;
   customCommand = customCommand;
-  cabata = inputs.cabata.packages.${pkgs.system}.default;
+  cabata = inputs.cabata.packages.${pkgs.stdenv.hostPlatform.system}.default;
 }

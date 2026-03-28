@@ -29,7 +29,7 @@ in {
     home.file.".login.sh" = {
       text = ''
         #!/usr/bin/env bash
-        ${pkgs.xorg.xinit}/bin/startx
+        ${pkgs.xinit}/bin/startx
       '';
       #Make executable
       executable = true;

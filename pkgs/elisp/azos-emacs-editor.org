@@ -79,6 +79,7 @@ Let's add a TOC
 (define-key azos/llm-keymap (kbd "m") #'gptel-menu)
 (define-key azos/llm-keymap (kbd "c") #'gptel-complete)
 (define-key azos/llm-keymap (kbd "C") #'gptel-accept-completion)
+(define-key azos/llm-keymap (kbd "s") #'agent-shell)
 #+end_src
 
 ** Agent Shell

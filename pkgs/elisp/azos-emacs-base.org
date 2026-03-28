@@ -887,6 +887,15 @@ Need to autoload dired-x for dired-omit
 (add-hook 'dired-mode-hook 'dired-omit-mode)
 (add-hook 'dired-mode-hook 'dired-hide-details-mode)
 (evil-collection-dired-setup)
+
+(defun azos/dired-open-externally ()
+  "Open file at point with xdg-open."
+  (interactive)
+  (let ((file (dired-get-file-for-visit)))
+    (start-process "xdg-open" nil "xdg-open" file)))
+
+(with-eval-after-load 'dired
+  (define-key dired-mode-map (kbd "C-c o") #'azos/dired-open-externally))
 #+end_src
 
 #+begin_src emacs-lisp
@@ -1236,6 +1245,7 @@ Snippet for src blocks
 
 #+begin_src emacs-lisp
 (add-to-list 'recentf-exclude "^/nix/store")
+(add-to-list 'recentf-exclude (lambda (f) (file-directory-p (expand-file-name f))))
 #+end_src
 
 ** Direnv
