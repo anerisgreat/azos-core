@@ -26,6 +26,7 @@ orgTrivialBuild {
     company
     olivetti #FLYCHECK PANDOC
     dired-subtree
+    peep-dired
     dashboard
     vterm
     load-dir

@@ -64,8 +64,7 @@ Let's add a TOC
 (use-package gptel
   :hook
   (gptel-mode . (lambda ()
-            (setq-local whitespace-style '(face tabs trailing tab-mark
-            indentation))))
+            (whitespace-mode -1)))
 )
 
 (use-package gptel-autocomplete
@@ -80,6 +79,62 @@ Let's add a TOC
 (define-key azos/llm-keymap (kbd "c") #'gptel-complete)
 (define-key azos/llm-keymap (kbd "C") #'gptel-accept-completion)
 (define-key azos/llm-keymap (kbd "s") #'agent-shell)
+#+end_src
+
+*** Table Wrapping
+
+Wrap markdown tables in gptel responses to fit window width.
+
+#+begin_src emacs-lisp
+(use-package markdown-table-wrap
+  :ensure t)
+
+(defvar azos/gptel-table-char-replacements
+  '(("\u202F" . " ")
+    ("\u2011" . "-")
+    ("\u2003" . "_")
+    )
+  "Alist of characters to replace in gptel tables.
+Each element is (CHAR-TO-REPLACE . REPLACEMENT).")
+
+(defun azos/gptel-wrap-markdown-tables (beg end)
+  "Wrap markdown tables in gptel response from BEG to END.
+Only runs in gptel-mode buffers."
+  (when (and (boundp 'gptel-mode) gptel-mode)
+    (save-excursion
+      (let ((end-marker (copy-marker end)))
+        (goto-char beg)
+        (while (and (< (point) end-marker)
+                    (re-search-forward "^\\s-*|" end-marker t))
+          (let* ((table-beg (line-beginning-position))
+                 (table-end (save-excursion
+                              (if (re-search-forward "^[^|]" nil t)
+                                  (line-beginning-position)
+                                (point-max))))
+                 (text (buffer-substring-no-properties table-beg table-end))
+                 (cleaned (cl-reduce
+                            (lambda (str pair)
+                              (replace-regexp-in-string (car pair) (cdr pair) str))
+                            azos/gptel-table-char-replacements
+                            :initial-value text))
+                 (wrapped (markdown-table-wrap cleaned 80))
+                 (final-table (if (string-suffix-p "\n\n" wrapped)
+                                  wrapped
+                                (concat wrapped "\n\n"))))
+            (unless (equal final-table text)
+              (delete-region table-beg table-end)
+              (goto-char table-beg)
+              (insert final-table))))))))
+
+(defun azos/gptel-rewrap-tables ()
+  "Re-wrap all markdown tables in current gptel buffer."
+  (interactive)
+  (azos/gptel-wrap-markdown-tables (point-min) (point-max)))
+
+(add-hook 'gptel-post-response-functions #'azos/gptel-wrap-markdown-tables)
+
+(with-eval-after-load 'gptel
+  (define-key gptel-mode-map (kbd "C-c C-w") #'azos/gptel-rewrap-tables))
 #+end_src
 
 ** Agent Shell

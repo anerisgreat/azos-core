@@ -9,8 +9,18 @@
     src = pkgs.fetchFromGitHub {
       owner = "karthink";
       repo = "gptel";
-      rev = "273c0f93958c1ffa85e396717b504903eda36bce"; # Use a specific commit hash for reproducibility
+      rev = "273c0f93958c1ffa85e396717b504903eda36bce";
       sha256 = "sha256-5sdjIiIOJEYzDN9o+iIz0AYdmtbEgbd8uec05BeQhb0=";
+    };
+  };
+  markdown-table-wrap = epkgs.callPackage epkgs.trivialBuild {
+    pname = "markdown-table-wrap";
+    version = "0.2.0";
+    src = pkgs.fetchFromGitHub {
+      owner = "dnouri";
+      repo = "markdown-table-wrap";
+      rev = "afc8214c6a2109891c5adf5ee7f75b8d8a2c4a35";
+      sha256 = "sha256-b1DuNOoWp7U8w3iJt/SYPJOSb6Q4nRqCkde2NbK5QVg=";
     };
   };
 in
@@ -18,29 +28,32 @@ in
     pname = "azos-emacs-editor";
     version = "0.1.6";
     src = ./elisp/azos-emacs-editor.org;
-    packageRequires = with epkgs; [
-      pkgs.azos-emacs-base
-
-      graphviz-dot-mode
-      markdown-mode
-      markdown-toc
-      org-present
-      pdf-tools
-      pandoc-mode
-      ghgptel
-      agent-shell
-      (epkgs.callPackage epkgs.trivialBuild {
-        pname = "gptel-autocomplete";
-        version = "2025-06-18";
-        src = pkgs.fetchFromGitHub {
-          owner = "JDNdeveloper";
-          repo = "gptel-autocomplete";
-          rev = "8ace326a6e7b8a3a4df7a6e80272b472e7fbd167"; # Use a specific commit hash for reproducibility
-          sha256 = "sha256-gVgdFLi6RGUCD3ZXzOIo5XpTNmP/9lMAO5nyWu1zVlM=";
-        };
-        buildInputs = with epkgs; [
-          ghgptel
-        ];
-      })
-    ];
+    packageRequires =
+      [
+        pkgs.azos-emacs-base
+        markdown-table-wrap
+        ghgptel
+      ]
+      ++ (with epkgs; [
+        graphviz-dot-mode
+        markdown-mode
+        markdown-toc
+        org-present
+        pdf-tools
+        pandoc-mode
+        agent-shell
+        (epkgs.callPackage epkgs.trivialBuild {
+          pname = "gptel-autocomplete";
+          version = "2025-06-18";
+          src = pkgs.fetchFromGitHub {
+            owner = "JDNdeveloper";
+            repo = "gptel-autocomplete";
+            rev = "8ace326a6e7b8a3a4df7a6e80272b472e7fbd167";
+            sha256 = "sha256-gVgdFLi6RGUCD3ZXzOIo5XpTNmP/9lMAO5nyWu1zVlM=";
+          };
+          buildInputs = with epkgs; [
+            ghgptel
+          ];
+        })
+      ]);
   }
