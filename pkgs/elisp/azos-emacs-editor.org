@@ -150,6 +150,43 @@ Only runs in gptel-mode buffers."
             (lambda ()
               (when (string-match-p "\\*agent-shell-diff\\*" (buffer-name))
                 (evil-emacs-state)))))
+
+(defun azos/agent-shell-wrap-markdown-tables (ranges)
+  "Wrap markdown tables in agent-shell response.
+RANGES is an alist containing block/body range positions."
+  (when (derived-mode-p 'agent-shell-mode)
+    (let* ((block (map-elt ranges :block))
+           (body (map-elt ranges :body))
+           (block-start (map-elt block :start))
+           (block-end (map-elt block :end))
+           (body-start (when body (map-elt body :start)))
+           (body-end (when body (map-elt body :end)))
+           (inhibit-read-only t))
+      (when (and block-start block-end)
+        (save-excursion
+          (goto-char (or body-start block-start))
+          (when (re-search-forward "^\\s-*|" (or body-end block-end) t)
+            (let* ((table-beg (line-beginning-position))
+                    (table-end (save-excursion
+                                 (if (re-search-forward "^[^|]" nil t)
+                                     (line-beginning-position)
+                                   (point-max))))
+                    (text (buffer-substring-no-properties table-beg table-end))
+                    (cleaned (cl-reduce
+                               (lambda (str pair)
+                                 (replace-regexp-in-string (car pair) (cdr pair) str))
+                               azos/gptel-table-char-replacements
+                               :initial-value text))
+                    (wrapped (markdown-table-wrap cleaned 80))
+                    (final-table (if (string-suffix-p "\n\n" wrapped)
+                                     wrapped
+                                   (concat wrapped "\n\n"))))
+              (unless (equal final-table text)
+                (delete-region table-beg table-end)
+                (goto-char table-beg)
+                (insert final-table)))))))))
+
+(define-key agent-shell-mode-map (kbd "C-c C-w") #'azos/agent-shell-rewrap-tables)
 #+end_src
 
 * ORG

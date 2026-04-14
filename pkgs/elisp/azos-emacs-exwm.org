@@ -348,50 +348,45 @@ new process, should it be displayed in a new buffer/tab.
 *** Volume
 
 #+begin_src emacs-lisp
-(defun azos/audio/wpctl-volume-muted ()
-  "Return the current default‑sink volume as a clean string, e.g. \"45%\"."
-  (let* ((output
-          (string-trim
-           (shell-command-to-string "wpctl get-volume @DEFAULT_AUDIO_SINK@")))
-         (value (string-to-number output))
-         (parts (split-string output "\\."))
-         (dec (or (cadr parts) "")))
-    (list (string-to-number dec) (string-match-p "\\[MUTED\\]" output))))
-
-(defun azos/audio/default-wpctl-sink-name ()
-  "Return the name of the current default sink (a string)."
-  (shell-command-to-string "wpctl inspect @DEFAULT_AUDIO_SINK@ | grep \"node.name\" | awk -F'\"' '{print $2}'"))
-
-
-(defun azos/audio/wpctl-port-icon ()
-  "Return a Unicode icon that represents the active port of the
-default WPCTL sink."
-  (let ((port (azos/audio/default-wpctl-sink-name))) ; ← the function you already have
-    (cond
-     ;; Head‑set / headphones – case‑insensitive
-     ((string-match-p "headset\\|headphone" port) "🎧")
-     ((string-match-p "bluez" port) "🎧")
-     ;; Speakers – also case‑insensitive
-     ((string-match-p "speaker" port)          "🔊")
-     ((string-match-p "analog" port)          "🔊")
-     ;; Fallback: just show the raw port name
-     (t port))))
-
 (defvar azos/audio/status-string nil "Holds audio string")
 
+(defun azos/audio/parse-status-output (output)
+  "Parse combined wpctl output (get-volume then inspect) into a display string."
+  (let* ((lines (split-string (string-trim output) "\n"))
+         (vol-line (or (car lines) ""))
+         (sink-name (or (cadr lines) ""))
+         ;; Parse volume: "Volume: 0.45 [MUTED]" → integer percentage
+         (vol-parts (split-string vol-line "\\."))
+         (dec (or (cadr vol-parts) "0"))
+         (volume (string-to-number (car (split-string dec "[^0-9]"))))
+         (ismute (string-match-p "\\[MUTED\\]" vol-line))
+         ;; Pick icon from sink name
+         (icon (cond
+                ((string-match-p "headset\\|headphone" sink-name) "🎧")
+                ((string-match-p "bluez" sink-name) "🎧")
+                ((string-match-p "speaker" sink-name) "🔊")
+                ((string-match-p "analog" sink-name) "🔊")
+                (t "🔈"))))
+    (concat icon (if ismute "  🔇" (format "%3d" volume)))))
+
+(defun azos/audio/set-status-string-sentinel (process event)
+  "Async sentinel: update `azos/audio/status-string' from process output."
+  (when (memq (process-status process) '(exit signal))
+    (let ((output (with-current-buffer (process-buffer process)
+                    (buffer-string))))
+      (setq azos/audio/status-string
+            (condition-case nil
+                (azos/audio/parse-status-output output)
+              (error nil)))
+      (kill-buffer (process-buffer process)))))
+
 (defun azos/audio/set-status-string ()
-  "Returns a Unicode icon that represents the mute state of the
-default WPCTL sink."
-  (setq azos/audio/status-string (with-timeout (0.2 nil)
-    (let* (
-            (volstats (azos/audio/wpctl-volume-muted))
-            (volume (car volstats))
-            (ismute (car (cdr volstats)))
-            )
-        (concat
-            (azos/audio/wpctl-port-icon)
-            (if ismute "  🔇" (format "%3d" volume))
-        )))))
+  "Asynchronously update the audio tab-bar status string."
+  (let* ((buf (generate-new-buffer " *azos-audio-status*"))
+         (proc (start-process-shell-command
+                "azos-audio-status" buf
+                "{ wpctl get-volume @DEFAULT_AUDIO_SINK@; wpctl inspect @DEFAULT_AUDIO_SINK@ | grep 'node.name' | awk -F'\"' '{print $2}'; }")))
+    (set-process-sentinel proc #'azos/audio/set-status-string-sentinel)))
 
 (defun azos/audio/get-status-string () "Get audio string"
        (if azos/audio/status-string azos/audio/status-string ""))
@@ -408,39 +403,50 @@ default WPCTL sink."
 *** Battery status in tab bar
 
 #+begin_src emacs-lisp
-(defun azos/bat/get-stats () "Gets battery statistics. First value returned
-is battery percentage, second one is t if charging"
-    (let* ((commandout (string-clean-whitespace (shell-command-to-string
-        "upower -i /org/freedesktop/UPower/devices/DisplayDevice"))))
-        (list
-        (string-to-number (progn
-            (string-match "\\(?:percentage\\:\s+\\)\\([0-9]+\\)" commandout)
-            (match-string 1 commandout)))
-        (progn
-                    (string-match "\\(?:state\\:\s+\\)\\([^\s]+\\)" commandout)
-                    (match-string 1 commandout)))
-            ))
-
 (defvar azos/bat/status-string nil "Holds battery string")
 
-(defun azos/bat/set-status-string () "Sets battery-string"
-       (let* ((bat-stats (azos/bat/get-stats))
-              (bat-charge-state (nth 1 bat-stats))
-              (bat-percentage-number
-                (if (string= bat-charge-state "fully-charged") 100
-                    (nth 0 bat-stats)))
-              (bat-color (if (<= bat-percentage-number 10) "red3"
-                          (if (<= bat-percentage-number 20) "DarkOrange"
-                            "DarkSlateGrey")))
-              (bat-weight (if (<= bat-percentage-number 20) 'bold 'normal))
-              (bat-charge-symbol (if (string= bat-charge-state "charging") "↑"
-                    (if (string= bat-charge-state "fully-charged") "🔋" "↓"))))
-          (setq azos/bat/status-string
-             (concat
-                "⚡" bat-charge-symbol " "
-                (propertize (format "%3d" bat-percentage-number)
-                             'face (list :foreground bat-color
-                                    :box (list :color "DarkSlateGrey")))))))
+(defun azos/bat/parse-status-output (commandout)
+  "Parse upower output string into the battery status string."
+  (let* ((commandout (string-clean-whitespace commandout))
+         (bat-percentage-raw
+          (string-to-number (progn
+            (string-match "\\(?:percentage\\:\s+\\)\\([0-9]+\\)" commandout)
+            (match-string 1 commandout))))
+         (bat-charge-state
+          (progn
+            (string-match "\\(?:state\\:\s+\\)\\([^\s]+\\)" commandout)
+            (match-string 1 commandout)))
+         (bat-percentage-number
+          (if (string= bat-charge-state "fully-charged") 100
+            bat-percentage-raw))
+         (bat-color (if (<= bat-percentage-number 10) "red3"
+                     (if (<= bat-percentage-number 20) "DarkOrange"
+                       "DarkSlateGrey")))
+         (bat-charge-symbol (if (string= bat-charge-state "charging") "↑"
+                             (if (string= bat-charge-state "fully-charged") "🔋" "↓"))))
+    (concat
+       "⚡" bat-charge-symbol " "
+       (propertize (format "%3d" bat-percentage-number)
+                   'face (list :foreground bat-color
+                               :box (list :color "DarkSlateGrey"))))))
+
+(defun azos/bat/set-status-string-sentinel (process event)
+  "Async sentinel: update `azos/bat/status-string' from process output."
+  (when (memq (process-status process) '(exit signal))
+    (let ((output (with-current-buffer (process-buffer process)
+                    (buffer-string))))
+      (setq azos/bat/status-string
+            (condition-case nil
+                (azos/bat/parse-status-output output)
+              (error nil)))
+      (kill-buffer (process-buffer process)))))
+
+(defun azos/bat/set-status-string () "Asynchronously update the battery tab-bar status string."
+  (let* ((buf (generate-new-buffer " *azos-bat-status*"))
+         (proc (start-process "azos-bat-status" buf
+                              "upower" "-i"
+                              "/org/freedesktop/UPower/devices/DisplayDevice")))
+    (set-process-sentinel proc #'azos/bat/set-status-string-sentinel)))
 
 (defun azos/bat/get-status-string () "Get battery string"
        (if azos/bat/status-string azos/bat/status-string ""))
