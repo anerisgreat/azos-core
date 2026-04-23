@@ -296,6 +296,12 @@ While we don't actually want fringes (almost at all), some frames use them.
 (window-divider-mode 1)
 #+end_src
 
+*** No right click!
+
+#+begin_src emacs-lisp
+(context-menu-mode -1)
+#+end_src
+
 *** Tab bar
 *** Base
 
