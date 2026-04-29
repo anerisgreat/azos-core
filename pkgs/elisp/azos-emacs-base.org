@@ -1255,6 +1255,20 @@ Snippet for src blocks
           vterm-term-environment-variable "xterm-256color"))
 #+end_src
 
+** with-editor
+
+When a shell runs inside emacs (vterm, shell-mode, eshell), replace =$EDITOR=
+with a mechanism that opens files directly in the current emacs session rather
+than spawning a nested emacs process.
+
+#+begin_src emacs-lisp
+(use-package with-editor
+  :hook
+  (vterm-mode . with-editor-export-editor)
+  (shell-mode . with-editor-export-editor)
+  (eshell-mode . with-editor-export-editor))
+#+end_src
+
 ** Boomkark
 
 #+begin_src emacs-lisp

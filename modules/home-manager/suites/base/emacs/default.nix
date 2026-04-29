@@ -64,6 +64,21 @@ in {
 
     azos.emacs.enabledSuites = [localPkgName];
 
+    # Use emacsclient as the default editor.
+    # In terminal contexts (EDITOR) open a TUI frame; in GUI contexts (VISUAL) open a GUI frame.
+    # Falls back to starting a standalone emacs if no server is available.
+    home.sessionVariables = {
+      EDITOR = "emacsclient -t -a emacs";
+      VISUAL = "emacsclient -c -a emacs";
+    };
+
+    # Run emacs as a persistent daemon so emacsclient can always connect.
+    # When EXWM is active, emacs is the X session itself and calls server-start
+    # directly, so no separate daemon is needed.
+    services.emacs = lib.mkIf (!config.azos.suites.exwm.enable) {
+      enable = true;
+    };
+
     #Global instantiation of Emacs
     programs.emacs = {
       enable = true;

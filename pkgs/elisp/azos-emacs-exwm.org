@@ -9,6 +9,16 @@
 (require 'azos-emacs-base)
 #+end_src
 
+** Server
+
+Start the emacs server so that =emacsclient= can open files in this session.
+This is what allows =EDITOR= / =VISUAL= to open files directly in the running
+EXWM session instead of launching a new emacs process.
+
+#+begin_src emacs-lisp
+(server-start)
+#+end_src
+
 * EXWM
 
 We execute the following code only if started with EXWM argument

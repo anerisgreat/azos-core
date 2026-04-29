@@ -29,6 +29,7 @@ orgTrivialBuild {
     peep-dired
     dashboard
     vterm
+    with-editor
     load-dir
     direnv
   ];

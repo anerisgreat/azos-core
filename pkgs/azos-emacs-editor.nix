@@ -13,16 +13,6 @@
       sha256 = "sha256-5sdjIiIOJEYzDN9o+iIz0AYdmtbEgbd8uec05BeQhb0=";
     };
   };
-  markdown-table-wrap = epkgs.callPackage epkgs.trivialBuild {
-    pname = "markdown-table-wrap";
-    version = "0.2.0";
-    src = pkgs.fetchFromGitHub {
-      owner = "dnouri";
-      repo = "markdown-table-wrap";
-      rev = "afc8214c6a2109891c5adf5ee7f75b8d8a2c4a35";
-      sha256 = "sha256-b1DuNOoWp7U8w3iJt/SYPJOSb6Q4nRqCkde2NbK5QVg=";
-    };
-  };
 in
   orgTrivialBuild {
     pname = "azos-emacs-editor";
@@ -31,7 +21,6 @@ in
     packageRequires =
       [
         pkgs.azos-emacs-base
-        markdown-table-wrap
         ghgptel
       ]
       ++ (with epkgs; [
@@ -42,6 +31,7 @@ in
         pdf-tools
         pandoc-mode
         agent-shell
+        markdown-table-wrap
         (epkgs.callPackage epkgs.trivialBuild {
           pname = "gptel-autocomplete";
           version = "2025-06-18";
