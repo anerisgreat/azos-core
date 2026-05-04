@@ -22,6 +22,7 @@ in {
     home.packages = with pkgs; [];
     home.file.".xinitrc" = {
       text = ''
+        systemctl --user import-environment DISPLAY XAUTHORITY
         exec emacs
       '';
     };
