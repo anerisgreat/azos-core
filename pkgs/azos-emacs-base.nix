@@ -2,14 +2,16 @@
   orgTrivialBuild,
   epkgs,
   pkgs,
+  evil-hl-line,
 }:
 orgTrivialBuild {
   pname = "azos-emacs-base";
-  version = "0.1.6";
+  version = "0.1.7";
   src = ./elisp/azos-emacs-base.org;
   packageRequires = with epkgs; [
     evil
     evil-collection
+    evil-hl-line
     magit
     undo-tree
     ivy

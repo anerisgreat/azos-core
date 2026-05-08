@@ -54,9 +54,20 @@
 
       phases = ["installPhase"];
     };
+  evil-hl-line = trivialBuild {
+    pname = "evil-hl-line";
+    version = "0.1.0";
+    src = inputs.evil-hl-line;
+    packageRequires = with epkgs; [evil];
+  };
 in {
   azos-emacs-orgTrivialBuild = orgTrivialBuild;
-  azos-emacs-base = localEmacsPkg ./azos-emacs-base.nix;
+  azos-emacs-base = pkgs.callPackage ./azos-emacs-base.nix {
+    orgTrivialBuild = orgTrivialBuild;
+    epkgs = epkgs;
+    pkgs = pkgs;
+    evil-hl-line = evil-hl-line;
+  };
   azos-emacs-editor = localEmacsPkg ./azos-emacs-editor.nix;
   azos-emacs-dev = localEmacsPkg ./azos-emacs-dev.nix;
   azos-emacs-station = localEmacsPkg ./azos-emacs-station.nix;

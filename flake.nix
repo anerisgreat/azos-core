@@ -3,6 +3,10 @@
     cabata = {
       url = "github:anerisgreat/cabata";
     };
+    evil-hl-line = {
+      url = "github:anerisgreat/evil-hl-line";
+      flake = true;
+    };
   };
 
   outputs = {
