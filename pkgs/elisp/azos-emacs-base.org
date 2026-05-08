@@ -189,15 +189,6 @@ Loading evil collection. Functions from this package will be referenced many tim
 )
 #+end_src
 
-#+begin_src emacs-lisp
-(defvar azos/evil-color-normal "LightGoldenrod1")
-(defvar azos/evil-color-emacs "LightBlue1")
-(defvar azos/evil-color-insert "PaleGreen1")
-(defvar azos/evil-color-replace "LightPink")
-(defvar azos/evil-color-motion "LightCyan")
-(defvar azos/evil-color-visual "LightGray")
-(defvar azos/evil-color-operate "sandy brown")
-#+end_src
 
 ** IVY
 
@@ -474,27 +465,13 @@ We use [[https://emacs.stackexchange.com/questions/5529/how-to-right-align-some-
 We use [[https://www.reddit.com/r/emacs/comments/4mhphb/spacemacs_how_to_limit_the_length_of_displayed/][this article]] to try and limit the mode name length.
 
 #+begin_src emacs-lisp
-(setq evil-normal-state-tag
-    (propertize " NORMAL  " 'face
-                (list :background azos/evil-color-normal))
-    evil-emacs-state-tag
-    (propertize " EMACS   " 'face
-                (list :background azos/evil-color-emacs))
-    evil-insert-state-tag
-    (propertize " INSERT  " 'face
-                (list :background azos/evil-color-insert))
-    evil-replace-state-tag
-    (propertize " REPLACE " 'face
-                (list :background azos/evil-color-replace))
-    evil-motion-state-tag
-    (propertize " MOTION  " 'face
-                (list :background azos/evil-color-motion))
-    evil-visual-state-tag
-    (propertize " VISUAL  " 'face
-                (list :background azos/evil-color-visual))
-    evil-operator-state-tag
-    (propertize " OPERATE " 'face
-                (list :background azos/evil-color-operate)))
+(setq evil-normal-state-tag   (propertize " NORMAL  " 'face 'evil-hl-line-normal)
+      evil-emacs-state-tag    (propertize " EMACS   " 'face 'evil-hl-line-emacs)
+      evil-insert-state-tag   (propertize " INSERT  " 'face 'evil-hl-line-insert)
+      evil-replace-state-tag  (propertize " REPLACE " 'face 'evil-hl-line-replace)
+      evil-motion-state-tag   (propertize " MOTION  " 'face 'evil-hl-line-motion)
+      evil-visual-state-tag   (propertize " VISUAL  " 'face 'evil-hl-line-visual)
+      evil-operator-state-tag (propertize " OPERATE " 'face 'evil-hl-line-operator))
 
 (defun azos/modeline/modeline-render (left right)
   "Return a string of `window-width' length containing LEFT, and RIGHT
@@ -634,79 +611,12 @@ Taken from [[https://www.emacswiki.org/emacs/LineNumbers][this wiki entry]].
 
 *** Line highlight
 
-Highlighting line with cursor.
-
-Modification done to use EVIL colors on highlighted line.
+Highlighting line with cursor, colored per Evil state via =evil-hl-line=.
 
 #+begin_src emacs-lisp
 (global-hl-line-mode)
-(set-face-attribute 'hl-line nil :background azos/evil-color-emacs)
-
-(defface hl-line-normal
-  (list (list t (list :inherit 'hl-line :background  azos/evil-color-normal
-                      :extend t)))
-    "Highlight face for evil normal mode."
-    :group 'hl-line)
-
-(defface hl-line-insert
-  (list (list t (list :inherit 'hl-line :background  azos/evil-color-insert
-                      :extend t)))
-    "Highlight face for evil insert mode."
-    :group 'hl-line)
-
-(defface hl-line-emacs
-  (list (list t (list :inherit 'hl-line :background  azos/evil-color-emacs
-                      :extend t)))
-    "Highlight face for evil insert mode."
-    :group 'hl-line)
-
-(defface hl-line-replace
-  (list (list t (list :inherit 'hl-line :background  azos/evil-color-replace
-                      :extend t)))
-    "Highlight face for evil insert mode."
-    :group 'hl-line)
-
-(defface hl-line-motion
-  (list (list t (list :inherit 'hl-line :background  azos/evil-color-motion
-                      :extend t)))
-    "Highlight face for evil insert mode."
-    :group 'hl-line)
-
-(defface hl-line-visual
-  (list (list t (list :inherit 'hl-line :background  azos/evil-color-visual
-                      :extend t)))
-    "Highlight face for evil insert mode."
-    :group 'hl-line)
-
-(defface hl-line-operate
-  (list (list t (list :inherit 'hl-line :background  azos/evil-color-operate
-                      :extend t)))
-    "Highlight face for evil insert mode."
-    :group 'hl-line)
-
-(defun azos/hl-line-evil/set-hl-state (state-face)
-  "Refresh hl-line to be state-face"
-  (progn
-    (global-hl-line-unhighlight)
-    (setq-local hl-line-face state-face)
-    (global-hl-line-highlight)))
-#+end_src
-
-#+begin_src emacs-lisp
-(add-hook 'evil-insert-state-entry-hook
-          (lambda () (azos/hl-line-evil/set-hl-state 'hl-line-insert)))
-(add-hook 'evil-normal-state-entry-hook
-          (lambda () (azos/hl-line-evil/set-hl-state 'hl-line-normal)))
-(add-hook 'evil-emacs-state-entry-hook
-          (lambda () (azos/hl-line-evil/set-hl-state 'hl-line-emacs)))
-(add-hook 'evil-replace-state-entry-hook
-          (lambda () (azos/hl-line-evil/set-hl-state 'hl-line-replace)))
-(add-hook 'evil-motion-state-entry-hook
-          (lambda () (azos/hl-line-evil/set-hl-state 'hl-line-motion)))
-(add-hook 'evil-visual-state-entry-hook
-          (lambda () (azos/hl-line-evil/set-hl-state 'hl-line-visual)))
-(add-hook 'evil-operate-state-entry-hook
-          (lambda () (azos/hl-line-evil/set-hl-state 'hl-line-operate)))
+(use-package evil-hl-line
+  :config (evil-hl-line-mode 1))
 #+end_src
 
 *** Line wrap
