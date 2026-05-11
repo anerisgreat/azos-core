@@ -54,12 +54,7 @@
 
       phases = ["installPhase"];
     };
-  evil-hl-line = trivialBuild {
-    pname = "evil-hl-line";
-    version = "0.1.0";
-    src = inputs.evil-hl-line;
-    packageRequires = with epkgs; [evil];
-  };
+  evil-hl-line = inputs.evil-hl-line.packages.${pkgs.stdenv.hostPlatform.system}.default;
 in {
   azos-emacs-orgTrivialBuild = orgTrivialBuild;
   azos-emacs-base = pkgs.callPackage ./azos-emacs-base.nix {
