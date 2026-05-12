@@ -19,7 +19,11 @@ in {
 
   #TODO shutdown reboot commands
   config = lib.mkIf isEnabled {
-    home.packages = with pkgs; [ffmpeg-full];
+    home.packages = with pkgs; [ffmpeg-full imv];
+
+    xdg.mimeApps.defaultApplications = {
+      "image/gif" = "imv.desktop";
+    };
 
     services.udiskie = {
       enable = true;

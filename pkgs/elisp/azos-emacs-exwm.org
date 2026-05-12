@@ -680,29 +680,29 @@ Functions for recording the screen to video (mp4) or GIF using =ffmpeg=.
   (interactive)
   (if (not (process-live-p azos/screencast/process))
       (message "No recording in progress.")
-    (let ((proc azos/screencast/process)
-          (pending-gif azos/screencast/pending-gif)
-          (tmp azos/screencast/temp-file))
-      (setq azos/screencast/process nil
-            azos/screencast/pending-gif nil
-            azos/screencast/temp-file nil)
+    (let ((proc azos/screencast/process))
+      (setq azos/screencast/process nil)
       (set-process-sentinel
        proc
        (lambda (_proc _event)
-         (if pending-gif
-             (progn
-               (message "Converting to GIF…")
-               (set-process-sentinel
-                (start-process
-                 "azos-gif" nil "ffmpeg" "-i" tmp
-                 "-vf" (concat "fps=15,scale=1280:-1:flags=lanczos,"
-                               "split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse")
-                 "-loop" "0" pending-gif)
-                (lambda (gif-proc _event)
-                  (when (memq (process-status gif-proc) '(exit signal))
-                    (delete-file tmp)
-                    (message "GIF saved → %s" pending-gif)))))
-           (message "Recording stopped."))))
+         (let ((gif azos/screencast/pending-gif)
+               (tmp azos/screencast/temp-file))
+           (setq azos/screencast/pending-gif nil
+                 azos/screencast/temp-file nil)
+           (if gif
+               (progn
+                 (message "Converting to GIF…")
+                 (set-process-sentinel
+                  (start-process
+                   "azos-gif" nil "ffmpeg" "-i" tmp
+                   "-vf" (concat "fps=15,scale=1280:-1:flags=lanczos,"
+                                 "split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse")
+                   "-loop" "0" gif)
+                  (lambda (gif-proc _event)
+                    (when (memq (process-status gif-proc) '(exit signal))
+                      (delete-file tmp)
+                      (message "GIF saved → %s" gif)))))
+             (message "Recording stopped.")))))
       (signal-process proc 'SIGINT))))
 
 (define-key azos/global-minor-mode/open-keymap (kbd "c r") 'azos/screencast/record-screen)
