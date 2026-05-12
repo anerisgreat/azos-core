@@ -283,7 +283,6 @@ in {
       reaper
 
       #For flash drive
-      exfat
       exfatprogs
       e2fsprogs
     ];
