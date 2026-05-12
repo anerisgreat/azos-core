@@ -486,6 +486,232 @@ End the execute only if EXWM block.
 (azos/exwm/load-exwm)
 #+end_src
 
+** Storage
+
+#+begin_src emacs-lisp
+(defun azos/storage--lsblk-field (dev field)
+  "Get FIELD from lsblk DEV hash table."
+  (when (hash-table-p dev)
+    (gethash field dev)))
+
+(defun azos/storage--list-devices ()
+  "Return flat list of partitions/devices from lsblk, with bare disks included."
+  (let* ((json-str (shell-command-to-string
+                    "lsblk --json -o NAME,SIZE,LABEL,MOUNTPOINT,TYPE"))
+         (data (condition-case nil (json-parse-string json-str) (error nil)))
+         (devs '()))
+    (when (hash-table-p data)
+      (seq-do
+       (lambda (dev)
+         (let ((children (azos/storage--lsblk-field dev "children")))
+           (if (and (vectorp children) (> (length children) 0))
+               (seq-do (lambda (child) (push child devs)) children)
+             (push dev devs))))
+       (gethash "blockdevices" data)))
+    (nreverse devs)))
+
+(defun azos/storage--null-p (val)
+  "Return t if VAL is a JSON null (i.e. :null)."
+  (eq val :null))
+
+(defun azos/storage--label-str (dev)
+  "Format label for DEV, returning empty string if absent."
+  (let ((label (azos/storage--lsblk-field dev "label")))
+    (if (and label (not (azos/storage--null-p label)))
+        (format "  [%s]" label)
+      "")))
+
+(defun azos/storage/mount ()
+  "Mount an unmounted block device using udisksctl."
+  (interactive)
+  (let* ((devs (azos/storage--list-devices))
+         (unmounted (seq-filter
+                     (lambda (d)
+                       (let ((mp (azos/storage--lsblk-field d "mountpoint"))
+                             (type (azos/storage--lsblk-field d "type"))
+                             (size (azos/storage--lsblk-field d "size")))
+                         (and (member type '("part" "disk"))
+                              (not (equal size "0B"))
+                              (or (null mp) (azos/storage--null-p mp)))))
+                     devs))
+         (choices (mapcar
+                   (lambda (d)
+                     (let ((name (azos/storage--lsblk-field d "name"))
+                           (size (azos/storage--lsblk-field d "size")))
+                       (cons (format "/dev/%s  %s%s" name size (azos/storage--label-str d))
+                             (format "/dev/%s" name))))
+                   unmounted)))
+    (if choices
+        (let* ((selected (completing-read "Mount device: " (mapcar #'car choices) nil t))
+               (device (cdr (assoc selected choices))))
+          (message "%s" (string-trim
+                         (shell-command-to-string
+                          (format "udisksctl mount -b %s" device)))))
+      (message "No unmounted partitions found."))))
+
+(defun azos/storage/unmount ()
+  "Unmount a mounted block device using udisksctl."
+  (interactive)
+  (let* ((devs (azos/storage--list-devices))
+         (mounted (seq-filter
+                   (lambda (d)
+                     (let ((mp (azos/storage--lsblk-field d "mountpoint")))
+                       (and mp
+                            (not (azos/storage--null-p mp))
+                            (not (string-prefix-p "/nix" mp))
+                            (not (string-prefix-p "/boot" mp))
+                            (not (equal mp "/"))
+                            (not (equal mp "[SWAP]")))))
+                   devs))
+         (choices (mapcar
+                   (lambda (d)
+                     (let ((name (azos/storage--lsblk-field d "name"))
+                           (size (azos/storage--lsblk-field d "size"))
+                           (mp   (azos/storage--lsblk-field d "mountpoint")))
+                       (cons (format "/dev/%s  %s  -> %s%s" name size mp (azos/storage--label-str d))
+                             (format "/dev/%s" name))))
+                   mounted)))
+    (if choices
+        (let* ((selected (completing-read "Unmount device: " (mapcar #'car choices) nil t))
+               (device (cdr (assoc selected choices))))
+          (message "%s" (string-trim
+                         (shell-command-to-string
+                          (format "udisksctl unmount -b %s" device)))))
+      (message "No mounted user partitions found."))))
+
+(define-key azos/global-minor-mode/open-keymap (kbd "s m") 'azos/storage/mount)
+(define-key azos/global-minor-mode/open-keymap (kbd "s u") 'azos/storage/unmount)
+#+end_src
+
+* Screen Capture
+
+Functions for recording the screen to video (mp4) or GIF using =ffmpeg=.
+
+- =c r= — record full screen to mp4
+- =c w= — record current Emacs window to mp4
+- =c g= — record full screen, stop produces a GIF
+- =c f= — record current Emacs window, stop produces a GIF
+- =c s= — stop recording (and convert to GIF if applicable)
+
+#+begin_src emacs-lisp
+(defvar azos/screencast/process nil "Active screen recording process.")
+(defvar azos/screencast/pending-gif nil "GIF output path for post-stop conversion, or nil.")
+(defvar azos/screencast/temp-file nil "Temp mp4 file used when recording to GIF.")
+
+(defun azos/screencast--display ()
+  "Return the current X display string."
+  (or (getenv "DISPLAY") ":0"))
+
+(defun azos/screencast--decode-pos (val)
+  "Decode frame position VAL, which may be an integer or a (+ N) list."
+  (if (consp val) (cadr val) (or val 0)))
+
+(defun azos/screencast--screen-geometry ()
+  "Return (x y w h) for the full screen."
+  (let* ((out (shell-command-to-string "xdpyinfo | grep -m1 dimensions"))
+         (w (if (string-match "\\([0-9]+\\)x\\([0-9]+\\)" out) (match-string 1 out) "1920"))
+         (h (if (string-match "\\([0-9]+\\)x\\([0-9]+\\)" out) (match-string 2 out) "1080")))
+    (list 0 0 w h)))
+
+(defun azos/screencast--window-geometry ()
+  "Return (x y w h) for the current Emacs window, in screen coordinates."
+  (let* ((edges (window-pixel-edges))
+         (fl (azos/screencast--decode-pos (frame-parameter nil 'left)))
+         (ft (azos/screencast--decode-pos (frame-parameter nil 'top)))
+         (x  (+ fl (nth 0 edges)))
+         (y  (+ ft (nth 1 edges)))
+         (w  (- (nth 2 edges) (nth 0 edges)))
+         (h  (- (nth 3 edges) (nth 1 edges))))
+    (list x y w h)))
+
+(defun azos/screencast--start (x y w h output-file)
+  "Start an ffmpeg x11grab recording of region (X,Y,WxH) to OUTPUT-FILE."
+  (when (process-live-p azos/screencast/process)
+    (user-error "A recording is already in progress; call azos/screencast/stop first"))
+  (setq azos/screencast/process
+        (start-process "azos-screencast" nil
+                       "ffmpeg" "-y"
+                       "-f" "x11grab"
+                       "-r" "30"
+                       "-s" (format "%sx%s" w h)
+                       "-i" (format "%s+%s,%s" (azos/screencast--display) x y)
+                       "-c:v" "libx264" "-preset" "ultrafast"
+                       output-file))
+  (message "Recording started → %s" output-file))
+
+(defun azos/screencast/record-screen (file)
+  "Record the full screen to FILE (mp4)."
+  (interactive (list (read-file-name "Save video to: " "~/" nil nil
+                                     (format-time-string "screencast-%Y%m%d-%H%M%S.mp4"))))
+  (setq azos/screencast/pending-gif nil azos/screencast/temp-file nil)
+  (apply #'azos/screencast--start
+         (append (azos/screencast--screen-geometry) (list (expand-file-name file)))))
+
+(defun azos/screencast/record-window (file)
+  "Record the current Emacs window to FILE (mp4)."
+  (interactive (list (read-file-name "Save video to: " "~/" nil nil
+                                     (format-time-string "screencast-%Y%m%d-%H%M%S.mp4"))))
+  (setq azos/screencast/pending-gif nil azos/screencast/temp-file nil)
+  (apply #'azos/screencast--start
+         (append (azos/screencast--window-geometry) (list (expand-file-name file)))))
+
+(defun azos/screencast/record-screen-gif (gif-file)
+  "Record the full screen; stopping will produce GIF-FILE."
+  (interactive (list (read-file-name "Save GIF to: " "~/" nil nil
+                                     (format-time-string "screencast-%Y%m%d-%H%M%S.gif"))))
+  (let ((tmp (make-temp-file "azos-screencast" nil ".mp4")))
+    (setq azos/screencast/pending-gif (expand-file-name gif-file)
+          azos/screencast/temp-file tmp)
+    (apply #'azos/screencast--start
+           (append (azos/screencast--screen-geometry) (list tmp)))))
+
+(defun azos/screencast/record-window-gif (gif-file)
+  "Record the current Emacs window; stopping will produce GIF-FILE."
+  (interactive (list (read-file-name "Save GIF to: " "~/" nil nil
+                                     (format-time-string "screencast-%Y%m%d-%H%M%S.gif"))))
+  (let ((tmp (make-temp-file "azos-screencast" nil ".mp4")))
+    (setq azos/screencast/pending-gif (expand-file-name gif-file)
+          azos/screencast/temp-file tmp)
+    (apply #'azos/screencast--start
+           (append (azos/screencast--window-geometry) (list tmp)))))
+
+(defun azos/screencast/stop ()
+  "Stop the current recording, converting to GIF if one was requested."
+  (interactive)
+  (if (not (process-live-p azos/screencast/process))
+      (message "No recording in progress.")
+    (let ((proc azos/screencast/process)
+          (pending-gif azos/screencast/pending-gif)
+          (tmp azos/screencast/temp-file))
+      (setq azos/screencast/process nil
+            azos/screencast/pending-gif nil
+            azos/screencast/temp-file nil)
+      (set-process-sentinel
+       proc
+       (lambda (_proc _event)
+         (if pending-gif
+             (progn
+               (message "Converting to GIF…")
+               (set-process-sentinel
+                (start-process
+                 "azos-gif" nil "ffmpeg" "-i" tmp
+                 "-vf" (concat "fps=15,scale=1280:-1:flags=lanczos,"
+                               "split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse")
+                 "-loop" "0" pending-gif)
+                (lambda (gif-proc _event)
+                  (when (memq (process-status gif-proc) '(exit signal))
+                    (delete-file tmp)
+                    (message "GIF saved → %s" pending-gif)))))
+           (message "Recording stopped."))))
+      (signal-process proc 'SIGINT))))
+
+(define-key azos/global-minor-mode/open-keymap (kbd "c r") 'azos/screencast/record-screen)
+(define-key azos/global-minor-mode/open-keymap (kbd "c w") 'azos/screencast/record-window)
+(define-key azos/global-minor-mode/open-keymap (kbd "c g") 'azos/screencast/record-screen-gif)
+(define-key azos/global-minor-mode/open-keymap (kbd "c f") 'azos/screencast/record-window-gif)
+(define-key azos/global-minor-mode/open-keymap (kbd "c s") 'azos/screencast/stop)
+#+end_src
+
 * Provide
 
 #+begin_src emacs-lisp

@@ -281,6 +281,11 @@ in {
       upower
       pass
       reaper
+
+      #For flash drive
+      exfat
+      exfatprogs
+      e2fsprogs
     ];
   };
 }

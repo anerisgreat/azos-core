@@ -19,7 +19,13 @@ in {
 
   #TODO shutdown reboot commands
   config = lib.mkIf isEnabled {
-    home.packages = with pkgs; [];
+    home.packages = with pkgs; [ffmpeg-full];
+
+    services.udiskie = {
+      enable = true;
+      tray = "never";
+    };
+
     home.file.".xinitrc" = {
       text = ''
         systemctl --user import-environment DISPLAY XAUTHORITY
