@@ -15,9 +15,9 @@
 
 Pandoc mode lets us export different formats to PDF.
 
-Added for use with markdown.
+Added for use with Markdown.
 
-Binding to startup is 'C-c /'
+Binding to start-up is 'C-c /'
 
 #+begin_src emacs-lisp
 (use-package pandoc-mode
@@ -33,10 +33,9 @@ Binding to startup is 'C-c /'
 
 ** Markdown
 
-Based on [[https://www.reddit.com/r/emacs/comments/u5owr4/how_to_enable_variablepitchmode_for_markdownmode/][this]] post
-detailing variable pitch.
+Based on [[https://www.reddit.com/r/emacs/comments/u5owr4/how_to_enable_variablepitchmode_for_markdownmode/][this]] post detailing variable pitch.
 
-We default to github-flavored markdown and show it as variable pitch.
+We default to GitHub-flavored Markdown and show it as variable pitch.
 
 #+begin_src emacs-lisp
 (use-package markdown-mode
@@ -189,6 +188,53 @@ RANGES is an alist containing block/body range positions."
 (define-key agent-shell-mode-map (kbd "C-c C-w") #'azos/agent-shell-rewrap-tables)
 #+end_src
 
+** Harper
+
+Harper is a grammar and spell checker. We use =eglot= (built-in) with
+=harper-ls= to get diagnostics in prose buffers.
+
+#+begin_src emacs-lisp
+(defun azos/harper-org-pos-excluded-p (pos)
+  "Return non-nil if POS should be excluded from harper diagnostics in org."
+  (save-excursion
+    (goto-char pos)
+    (or
+     (org-in-src-block-p)
+     (memq (org-element-type (org-element-at-point))
+           '(keyword property-drawer node-property comment
+             comment-block export-block latex-environment src-block))
+     (eq (org-element-type (org-element-context)) 'latex-fragment))))
+
+(defun azos/harper-filter-org-src-diags (orig-fn diags)
+  "Filter harper diagnostics in org: skip code, keywords, and latex."
+  (funcall orig-fn
+           (if (derived-mode-p 'org-mode)
+               (cl-remove-if
+                (lambda (d)
+                  (azos/harper-org-pos-excluded-p (flymake-diagnostic-beg d)))
+                diags)
+             diags)))
+
+(defun azos/harper-eglot-org-setup ()
+  "Start eglot in org-mode with src block diagnostic filtering."
+  (advice-add 'eglot--report-to-flymake :around
+              #'azos/harper-filter-org-src-diags
+              '((name . azos-harper-org-filter)))
+  (eglot-ensure))
+
+(use-package eglot
+  :hook
+  (markdown-mode . eglot-ensure)
+  (gfm-mode . eglot-ensure)
+  (org-mode . azos/harper-eglot-org-setup)
+  :bind
+  (:map eglot-mode-map
+        ("C-c a" . eglot-code-actions))
+  :config
+  (add-to-list 'eglot-server-programs
+               '((markdown-mode gfm-mode org-mode) . ("harper-ls" "--stdio"))))
+#+end_src
+
 * ORG
 
 ** PDF exporting
@@ -332,7 +378,7 @@ Comments:
            (format-time-string "-%Y-%m-%d-%H%M%S") ".docx")))
 #+end_src
 
-** Latex previews
+** LaTeX previews
 
 We don't want to create ltximg directories all over the place.
 Let's store all ltximg previews in tmp directory.

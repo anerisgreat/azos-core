@@ -17,6 +17,6 @@ in {
   ];
 
   config = lib.mkIf isEnabled {
-    home.packages = with pkgs; [opencode azos-tex pandoc graphviz];
+    home.packages = with pkgs; [opencode azos-tex pandoc graphviz harper];
   };
 }
