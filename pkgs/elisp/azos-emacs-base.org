@@ -1128,17 +1128,19 @@ Snippet for src blocks
   :ensure t
   :config
   (setq
-        dashboard-items '((recents  . 5)
-                          (bookmarks . 5))
-                          ;; (projects . 5))
-        dashboard-center-content t
-        dashboard-banner-logo-title nil
-        dashboard-startup-banner 'ascii
-        dashboard-banner-ascii "azos")
+   dashboard-items '((recents  . 5)
+                     (bookmarks . 5)
+                     (projects . 5))
+   dashboard-center-content t
+   dashboard-banner-logo-title nil
+   dashboard-startup-banner 'ascii
+   dashboard-banner-ascii (concat
+                           "┏━┓╺━┓┏━┓┏━┓\n"
+                           "┣━┫┏━┛┃ ┃┗━┓\n"
+                           "╹ ╹┗━╸┗━┛┗━┛")
+   dashboard-projects-backend 'projectile)
   (add-to-list 'evil-emacs-state-modes 'dashboard-mode)
-  ;; (dashboard-setup-startup-hook)
-
-  )
+  (dashboard-setup-startup-hook))
 #+end_src
 
 ** VTerm
