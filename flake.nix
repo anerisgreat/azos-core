@@ -1,5 +1,7 @@
 {
   inputs = {
+    flake-parts.url = "github:hercules-ci/flake-parts";
+    import-tree.url = "github:vic/import-tree";
     cabata = {
       url = "github:anerisgreat/cabata";
     };
@@ -9,21 +11,22 @@
     };
   };
 
-  outputs = {
-    self,
-    nixpkgs,
-    cabata,
-    ...
-  } @ inputs: let
-    inherit (nixpkgs) lib;
-  in rec {
-    overlays = import ./overlays {inherit inputs;};
-    nixosModules = rec {
-      homeManagerModules = import ./modules/home-manager;
-      nixosModules = import ./modules/nixos;
+  outputs = inputs:
+    inputs.flake-parts.lib.mkFlake {inherit inputs;} {
+      imports = [
+        ./_lib/modules.nix
+        ./overlays/default.nix
+        (inputs.import-tree ./features)
+        {_module.args.azosCoreInputs = inputs;}
+      ];
+
+      flake.flakeModules.default = {
+        imports = [
+          ./_lib/modules.nix
+          ./overlays/default.nix
+          (inputs.import-tree ./features)
+          {_module.args.azosCoreInputs = inputs;}
+        ];
+      };
     };
-    specialArgs = {
-      inherit cabata;
-    };
-  };
 }
