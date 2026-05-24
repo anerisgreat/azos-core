@@ -5,10 +5,11 @@
 }:
 orgTrivialBuild {
   pname = "azos-emacs-dev";
-  version = "0.1.6";
+  version = "0.1.7";
   src = ./elisp/azos-emacs-dev.org;
   packageRequires = with epkgs; [
     cmake-mode
+    package-lint
     yaml
     yaml-mode
     nix-mode
