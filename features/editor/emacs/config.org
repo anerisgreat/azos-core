@@ -447,6 +447,42 @@ https://karthinks.com/software/scaling-latex-previews-in-emacs/
 )
 #+end_src
 
+** Roam
+
+#+begin_src emacs-lisp
+(defvar azos/roam-keymap (make-sparse-keymap))
+(define-key azos/global-minor-mode/open-keymap (kbd "r") azos/roam-keymap)
+
+(use-package org-roam
+  :custom
+  (org-roam-directory "~/roam/")
+  (org-roam-database-connector 'sqlite-builtin)
+  :config
+  (make-directory org-roam-directory t)
+  (org-roam-db-autosync-mode)
+  (define-key azos/roam-keymap (kbd "f") #'org-roam-node-find)
+  (define-key azos/roam-keymap (kbd "i") #'org-roam-node-insert)
+  (define-key azos/roam-keymap (kbd "c") #'org-roam-capture)
+  (define-key azos/roam-keymap (kbd "b") #'org-roam-buffer-toggle))
+#+end_src
+
+** Capture
+
+#+begin_src emacs-lisp
+(with-eval-after-load 'org
+  (setq org-capture-templates
+        '(("t" "Todo" entry
+           (file+headline "~/roam/inbox.org" "Tasks")
+           "* TODO %?\n  %U\n  %a")
+          ("n" "Note" entry
+           (file+headline "~/roam/inbox.org" "Notes")
+           "* %?\n  %U")
+          ("j" "Journal" entry
+           (file+datetree "~/roam/journal.org")
+           "* %?\n  Entered on %U\n")))
+  (define-key azos/roam-keymap (kbd "n") #'org-capture))
+#+end_src
+
 * Provide
 
 #+begin_src emacs-lisp

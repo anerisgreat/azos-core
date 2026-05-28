@@ -9,7 +9,9 @@
       default = false;
       type = lib.types.bool;
     };
-    config = lib.mkIf config.azos.suites.base.enable {
+    config = lib.mkIf config.azos.suites.station.enable {
+      azos.suites.base.enable = lib.mkDefault true;
+
       home.keyboard = {
         options = ["grp:alt_shift_toggle"];
         layout = "us,il";

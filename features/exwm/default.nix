@@ -10,6 +10,9 @@
       type = lib.types.bool;
     };
     config = lib.mkIf config.azos.suites.exwm.enable {
+      azos.suites.base.enable = lib.mkDefault true;
+      azos.suites.station.enable = lib.mkDefault true;
+
       home.packages = with pkgs; [ffmpeg-full imv];
       xdg.mimeApps.defaultApplications = {"image/gif" = "imv.desktop";};
       services.udiskie = {
