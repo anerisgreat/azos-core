@@ -4,7 +4,8 @@
     config,
     pkgs,
     ...
-  }: {config = {
+  }: {
+    config = {
       services.xserver = {
         enable = true;
         autorun = false;

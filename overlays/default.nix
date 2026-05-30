@@ -1,4 +1,8 @@
-{config, lib, ...}: {
+{
+  config,
+  lib,
+  ...
+}: {
   config.flake.overlays.addpkgs = final: _prev:
     lib.mapAttrs (_: f: f final) config.flake.overlayPkgs;
 

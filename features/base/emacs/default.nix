@@ -30,13 +30,12 @@
         '';
       });
 
-  config.flake.overlayPkgs.localEmacsPkg = pkgs:
-    src:
-      pkgs.callPackage src {
-        orgTrivialBuild = pkgs.azos-emacs-orgTrivialBuild;
-        epkgs = pkgs.emacs.pkgs;
-        inherit pkgs;
-      };
+  config.flake.overlayPkgs.localEmacsPkg = pkgs: src:
+    pkgs.callPackage src {
+      orgTrivialBuild = pkgs.azos-emacs-orgTrivialBuild;
+      epkgs = pkgs.emacs.pkgs;
+      inherit pkgs;
+    };
 
   config.flake.overlayPkgs.azos-emacs-base = pkgs:
     pkgs.callPackage ./_pkg.nix {

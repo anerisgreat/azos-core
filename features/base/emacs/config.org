@@ -1206,6 +1206,12 @@ than spawning a nested emacs process.
   (direnv-mode))          ; global minor mode
 #+end_src
 
+** CSV mode
+
+#+begin_src emacs-lisp
+(use-package csv-mode)
+#+end_src
+
 ** Cabata
 
 #+begin_src emacs-lisp

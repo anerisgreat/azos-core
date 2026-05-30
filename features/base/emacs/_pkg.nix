@@ -34,5 +34,6 @@ orgTrivialBuild {
     with-editor
     load-dir
     direnv
+    csv-mode
   ];
 }
