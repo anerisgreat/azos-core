@@ -805,10 +805,11 @@ Need to autoload dired-x for dired-omit
 (evil-collection-dired-setup)
 
 (defun azos/dired-open-externally ()
-  "Open file at point with xdg-open."
+  "Open file at point with xdg-open. Copies remote files locally first."
   (interactive)
-  (let ((file (dired-get-file-for-visit)))
-    (start-process "xdg-open" nil "xdg-open" file)))
+  (let* ((file (dired-get-file-for-visit))
+         (local (or (file-local-copy file) file)))
+    (start-process "xdg-open" nil "xdg-open" local)))
 
 (with-eval-after-load 'dired
   (define-key dired-mode-map (kbd "C-c o") #'azos/dired-open-externally))
