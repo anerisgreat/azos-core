@@ -297,6 +297,15 @@ https://github.com/karthink/elfeed-tube
   :commands (kubernetes-overview))
 #+end_src
 
+** Weather
+
+#+begin_src emacs-lisp
+(use-package wttrin
+  :bind
+    (:map azos/global-minor-mode/open-keymap
+        ("w" . wttrin)))
+#+end_src
+
 * Provide
 
 #+begin_src emacs-lisp

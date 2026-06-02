@@ -16,5 +16,6 @@ orgTrivialBuild {
     pass
     scad-mode
     kubernetes
+    wttrin
   ];
 }
