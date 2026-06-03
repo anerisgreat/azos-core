@@ -91,20 +91,53 @@ Integration with flycheck
 ** Python
 
 #+begin_src emacs-lisp
-(setq
-    ;; python-shell-interpreter "python3"
-    python-shell-completion-native-enable nil)
+(setq python-shell-completion-native-enable nil)
 
-(defun azos/python/set-fringes () "Sets fringes for python"
-       (setq left-fringe-width 10 right-fringe-width 0))
+(defun azos/python/set-fringes ()
+  (setq left-fringe-width 10 right-fringe-width 0))
 
-(add-hook 'python-mode-hook 'azos/python/set-fringes)
+(add-hook 'python-mode-hook #'azos/python/set-fringes)
 
-(use-package elpy
-  :ensure t
-  :defer t)
-  ;; :init
-  ;; (elpy-enable))
+;; LSP via eglot + basedpyright
+(with-eval-after-load 'eglot
+  (add-to-list 'eglot-server-programs
+               '((python-mode python-ts-mode) . ("basedpyright-langserver" "--stdio"))))
+
+(add-hook 'python-mode-hook #'eglot-ensure)
+
+;; eglot uses flymake; disable flycheck in Python buffers to avoid duplication
+(add-hook 'python-mode-hook (lambda () (flycheck-mode -1)))
+
+;; ruff linting via flymake
+(use-package flymake-ruff
+  :hook
+  (python-mode . flymake-mode)
+  (python-mode . flymake-ruff-load))
+
+;; pet: detect correct Python executable per project (venv, poetry, pyenv, etc.)
+(use-package pet
+  :config
+  (add-hook 'python-mode-hook
+            (lambda ()
+              (setq-local python-shell-interpreter (pet-executable-find "python")
+                          python-shell-interpreter-args "-i")
+              (pet-eglot-setup))))
+
+;; auto-activate .venv in project root
+(use-package pyvenv-auto
+  :hook (python-mode . pyvenv-auto-run))
+
+;; ruff format current buffer (stdin → stdout, replaces in place)
+(defun azos/python/ruff-format ()
+  "Format Python buffer with ruff."
+  (interactive)
+  (when (executable-find "ruff")
+    (let ((saved-point (point)))
+      (shell-command-on-region (point-min) (point-max) "ruff format -" t t nil t)
+      (goto-char (min saved-point (point-max))))))
+
+(with-eval-after-load 'python
+  (define-key python-mode-map (kbd "C-c f") #'azos/python/ruff-format))
 
 (define-key azos/global-minor-mode/open-keymap
   (kbd "r p") 'run-python)

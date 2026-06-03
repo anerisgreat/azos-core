@@ -22,6 +22,9 @@ orgTrivialBuild {
     flycheck
     irony
     flycheck-irony
+    pyvenv-auto
+    pet
+    flymake-ruff
     pkgs.azos-emacs-base
     pkgs.azos-emacs-editor
   ];

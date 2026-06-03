@@ -12,6 +12,7 @@ orgTrivialBuild {
     evil
     evil-collection
     evil-hl-line
+    evil-surround
     magit
     undo-tree
     ivy

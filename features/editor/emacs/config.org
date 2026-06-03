@@ -141,6 +141,8 @@ Only runs in gptel-mode buffers."
 #+begin_src emacs-lisp
 (use-package agent-shell
   :ensure t
+  :init
+  (setq agent-shell-show-usage-at-turn-end t)
   :config
   (evil-define-key 'insert agent-shell-mode-map (kbd "RET") #'newline)
   (evil-define-key 'insert agent-shell-mode-map (kbd "C-<return>") #'comint-send-input)

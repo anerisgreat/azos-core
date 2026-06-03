@@ -18,9 +18,14 @@
       description = "List of packages for python.";
     };
     config = lib.mkIf (config.azos.python.enable && config.azos.suites.base.enable) {
-      home.packages = [
-        (config.azos.python.pythonpkg.withPackages (_python-pkgs: config.azos.python.pkgs))
-      ];
+      home.packages =
+        [
+          (config.azos.python.pythonpkg.withPackages (_python-pkgs: config.azos.python.pkgs))
+        ]
+        ++ lib.optionals config.azos.suites.dev.enable (with pkgs; [
+          basedpyright
+          ruff
+        ]);
     };
   };
 }

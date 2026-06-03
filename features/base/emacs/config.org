@@ -187,6 +187,10 @@ Loading evil collection. Functions from this package will be referenced many tim
   :config
   (setq evil-collection-setup-minibuffer t)
 )
+
+(use-package evil-surround
+  :config
+  (global-evil-surround-mode 1))
 #+end_src
 
 
