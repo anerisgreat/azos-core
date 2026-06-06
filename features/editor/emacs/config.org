@@ -462,6 +462,7 @@ https://karthinks.com/software/scaling-latex-previews-in-emacs/
   :config
   (make-directory org-roam-directory t)
   (org-roam-db-autosync-mode)
+  (setq org-agenda-files (list org-roam-directory))
   (define-key azos/roam-keymap (kbd "f") #'org-roam-node-find)
   (define-key azos/roam-keymap (kbd "i") #'org-roam-node-insert)
   (define-key azos/roam-keymap (kbd "c") #'org-roam-capture)
