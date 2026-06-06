@@ -466,7 +466,13 @@ https://karthinks.com/software/scaling-latex-previews-in-emacs/
   (define-key azos/roam-keymap (kbd "f") #'org-roam-node-find)
   (define-key azos/roam-keymap (kbd "i") #'org-roam-node-insert)
   (define-key azos/roam-keymap (kbd "c") #'org-roam-capture)
-  (define-key azos/roam-keymap (kbd "b") #'org-roam-buffer-toggle))
+  (define-key azos/roam-keymap (kbd "b") #'org-roam-buffer-toggle)
+  (define-key azos/roam-keymap (kbd "l") #'org-todo-list))
+
+(with-eval-after-load 'org-agenda
+  (evil-set-initial-state 'org-agenda-mode 'motion)
+  (evil-collection-define-key 'motion 'org-agenda-mode-map
+    (kbd "RET") #'org-agenda-switch-to))
 #+end_src
 
 ** Capture

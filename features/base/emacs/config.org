@@ -112,9 +112,7 @@ Setting of keybindings based on [[https://stackoverflow.com/questions/49853494/t
 #+begin_src emacs-lisp
 ;We'll define a basic keymap and already load window-manip funcs
 (defvar azos/global-minor-mode/open-keymap
-  (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "o") 'azos/open-conf-file)
-    map)
+  (make-sparse-keymap)
   "global keymap for opening stuff on azos")
 #+end_src
 
