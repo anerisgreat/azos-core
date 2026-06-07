@@ -5,10 +5,10 @@
       version = "0.1.0";
       pyproject = true;
       src = pkgs.fetchFromGitHub {
-        owner = "aserranoni";
+        owner = "anerisgreat";
         repo = "org-roam-mcp";
-        rev = "e526327a023f032b1c252cadd829968d8a1e5358";
-        sha256 = "16i2i6381pr01lx6lzbhmmxsjvs2mighq2rlw0icrhhsr7s165h9";
+        rev = "499e5f5c1dbfa2dccb6659959668c93d27d5a385";
+        sha256 = "0bb5zrly6w3xkw9k2yv55zg7qs0k9bzg05fy5yvgvh9gdpnq238s";
       };
       build-system = [pkgs.python3Packages.hatchling];
       dependencies = with pkgs.python3Packages; [
@@ -17,17 +17,6 @@
         typing-extensions
         anyio
       ];
-      postPatch = ''
-        substituteInPlace src/org_roam_mcp/server.py \
-          --replace-fail 'if __name__ == "__main__":' \
-          'def cli_main():
-    asyncio.run(main())
-
-if __name__ == "__main__":'
-        substituteInPlace pyproject.toml \
-          --replace-fail 'org-roam-mcp = "org_roam_mcp.server:main"' \
-                         'org-roam-mcp = "org_roam_mcp.server:cli_main"'
-      '';
     };
 
   config.flake.modules.homeManager.claude-memory = {
