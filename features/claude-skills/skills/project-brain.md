@@ -55,22 +55,21 @@ needing to follow links.
 
 ### Load context (invoke at session start AND before planning any non-trivial feature or multi-step task)
 1. Get project name: basename of the current working directory (e.g. `azos`, not `azos knowledge`)
-2. Search org-roam: `mcp__org-roam__search_nodes` using **only the project name as the query** — do NOT append "knowledge" or other words to the query string; the tag filter handles that
-3. If found: fetch the root node with `mcp__org-roam__get_node` and incorporate into working context
-4. If the session or task is clearly focused on a specific domain, also search for and load `<project>/<domain>` (e.g. search `azos/emacs`)
-5. If not found: note that no prior knowledge exists yet for this project
+2. Call `mcp__org-roam__get_node_by_title` with the project name — this returns full node content in a single call
+3. If `found: true`: incorporate the content into working context
+   - If the `** Subnodes` section contains links and the current task is domain-focused, extract the linked node IDs and call `mcp__org-roam__get_node` on the relevant ones (all in parallel if multiple)
+4. If `found: false`: note that no prior knowledge exists yet for this project
 
 ### Save new knowledge (run after planning, research, or feature work — not just when explicitly asked)
 1. Determine whether the knowledge belongs in the root node or a domain subnode
-2. Search for the target node via `mcp__org-roam__search_nodes` (query = project name only)
-3. If no node: create via `mcp__org-roam__create_node` with appropriate title and tags;
+2. Call `mcp__org-roam__get_node_by_title` with the target node's title to get current content in one call
+3. If not found: create via `mcp__org-roam__create_node` with appropriate title and tags;
    if creating a subnode, also update the root's `** Subnodes` section with a link to it
-4. Fetch current content with `mcp__org-roam__get_node`
-5. Add new findings under the appropriate section, avoiding duplicates
-6. **Before writing**: check whether any section now exceeds ~15 lines. If it does, split it
+4. Add new findings under the appropriate section, avoiding duplicates
+5. **Before writing**: check whether any section now exceeds ~15 lines. If it does, split it
    into a subnode NOW rather than letting the root grow. Prefer many small focused nodes
    over one large node — a future session loads only what it needs.
-7. Update via `mcp__org-roam__update_node`
+6. Update via `mcp__org-roam__update_node`
 
 ### Split a section into a subnode
 1. Identify the section in the root node that has outgrown its place
