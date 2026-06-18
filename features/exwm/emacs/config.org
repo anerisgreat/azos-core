@@ -57,22 +57,42 @@ We execute the following code only if started with EXWM argument
 ** Smart buffer naming
 
 #+begin_src emacs-lisp
+(defvar azos/exwm/title-debounce-timers (make-hash-table :test 'eq)
+  "Map of buffer → pending title-rename timer, used to debounce qutebrowser windows.")
+
+(defun azos/exwm/debounce-title-rename (title buf)
+  "Schedule a rename of BUF to TITLE after 0.5s, cancelling any pending rename for BUF."
+  (let ((existing (gethash buf azos/exwm/title-debounce-timers)))
+    (when existing (cancel-timer existing)))
+  (puthash buf
+           (run-with-timer 0.5 nil
+             (lambda ()
+               (remhash buf azos/exwm/title-debounce-timers)
+               (when (buffer-live-p buf)
+                 (with-current-buffer buf
+                   (exwm-workspace-rename-buffer title)))))
+           azos/exwm/title-debounce-timers))
+#+end_src
+
+#+begin_src emacs-lisp
 (add-hook 'azos/exwm/load-hook (lambda () (progn
 
 (add-hook 'exwm-update-class-hook
           (lambda ()
             (unless (or (string-prefix-p "sun-awt-X11-" exwm-instance-name)
-                        (string= "gimp" exwm-instance-name))
-                        (string-prefix-p "qute" exwm-instance-name)
+                        (string= "gimp" exwm-instance-name)
+                        (string-prefix-p "qute" exwm-instance-name))
               (exwm-workspace-rename-buffer exwm-class-name))))
 
 (add-hook 'exwm-update-title-hook
           (lambda ()
-            (when (or (not exwm-instance-name)
-                      (string-prefix-p "sun-awt-X11-" exwm-instance-name)
-                      (string-prefix-p "qute" exwm-instance-name)
-                      (string= "gimp" exwm-instance-name))
-              (exwm-workspace-rename-buffer exwm-title))))
+            (cond
+              ((string-prefix-p "qute" (or exwm-instance-name ""))
+               (azos/exwm/debounce-title-rename exwm-title (current-buffer)))
+              ((or (not exwm-instance-name)
+                   (string-prefix-p "sun-awt-X11-" exwm-instance-name)
+                   (string= "gimp" exwm-instance-name))
+               (exwm-workspace-rename-buffer exwm-title)))))
 
 (add-hook 'exwm-update-class-hook
         (lambda ()

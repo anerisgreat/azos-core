@@ -7,8 +7,8 @@
       src = pkgs.fetchFromGitHub {
         owner = "anerisgreat";
         repo = "org-roam-mcp";
-        rev = "14e81777c83def46853b180a5848bdd0374424f1";
-        sha256 = "02gb040qcfrjcrapvc9s50gs6y93f2s3j8dcrqmw48xzdk1l1b8g";
+        rev = "dd2e1f7dd040a57240e448016e3625a0de7fbff6";
+        sha256 = "1b3hsszzgcn57jfxnp8zghf8hl1v01kk445q40x8yqzrcvd7nf9v";
       };
       build-system = [pkgs.python3Packages.hatchling];
       dependencies = with pkgs.python3Packages; [
