@@ -13,7 +13,7 @@
       azos.suites.base.enable = lib.mkDefault true;
       azos.suites.station.enable = lib.mkDefault true;
 
-      home.packages = with pkgs; [ffmpeg-full imv];
+      home.packages = with pkgs; [ffmpeg-full imv xkb-switch];
       xdg.mimeApps.defaultApplications = {"image/gif" = "imv.desktop";};
       services.udiskie = {
         enable = true;

@@ -193,13 +193,54 @@ Sending simulated keys to X windows
 (add-hook 'azos/exwm/load-hook (lambda () (progn
     (setq exwm-input-prefix-keys
     '(?\C-x ?\C-u ?\C-h ?\M-x ?\M-& ?\M-: ?\s-d
-            ?\s-m ?\s-r ?\s-s ?\s-q ?\H-l ?\C-w)))))
+            ?\s-m ?\s-r ?\s-s ?\s-q ?\H-l ?\C-w ?\C-c ?\C-@)))))
+#+end_src
+
+** Language toggle
+
+Unified Hebrew toggle: queries live XKB state via =xkb-switch -p=, then syncs
+both the XKB layout and the Emacs input method. Manual =Alt+Shift= in X apps
+cannot cause drift because state is always read from the source of truth.
+
+#+begin_src emacs-lisp
+(defun azos/toggle-language ()
+  "Toggle Hebrew: syncs Emacs input method and XKB layout."
+  (interactive)
+  (let* ((current (with-temp-buffer
+                    (call-process "xkb-switch" nil t nil "-p")
+                    (string-trim (buffer-string))))
+         (go-hebrew (string= current "us")))
+    (start-process "xkb-switch" nil "xkb-switch" "-s" (if go-hebrew "il" "us"))
+    (if go-hebrew
+        (activate-input-method "hebrew")
+      (deactivate-input-method))))
+
+(define-key azos/global-minor-mode/keymap (kbd "C-SPC") #'azos/toggle-language)
+
+(add-hook 'azos/exwm/load-hook
+          (lambda ()
+            (exwm-input-set-key (kbd "C-SPC") #'azos/toggle-language)))
 #+end_src
 
 ** Desktop environment
 
 #+begin_src emacs-lisp
 (use-package desktop-environment :after exwm)
+#+end_src
+
+** exwm-edit
+
+Edit any X11 text field in a full Emacs buffer. Press =C-c '= in an EXWM window
+(e.g. a qutebrowser text input) to open the field contents for editing; =C-c C-c=
+confirms and pastes the result back.
+
+#+begin_src emacs-lisp
+(use-package exwm-edit
+  :after exwm
+  :config
+  (define-key exwm-mode-map (kbd "C-c '") #'exwm-edit--compose)
+  (add-hook 'exwm-edit-compose-hook
+            (lambda () (set-input-method nil))))
 #+end_src
 
 ** Bluetooth
