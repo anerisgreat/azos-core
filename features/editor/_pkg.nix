@@ -18,6 +18,18 @@
     cjhebrew
     hebrew-fonts
     #Others
+    silence
+    algorithm2e
+    appendix
+    chngcntr
+    cleveref
+    csquotes
+    enumitem
+    footmisc
+    gensymb
+    ntheorem
+    titling
+    tocbibind
     zref #Page numbering
     transparent #Transparency
 

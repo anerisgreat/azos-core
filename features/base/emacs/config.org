@@ -49,9 +49,19 @@ This just makes sure the code is loaded early on for later use.
 Defining a function to copy filename.
 
 #+begin_src emacs-lisp
-(defun azos/copy-file-name () (interactive)
-       (let ((fpath buffer-file-name))
-         (if fpath (kill-new fpath) (message "No current file!"))))
+(defun azos/copy-file-name (&optional with-line)
+  "Copy current buffer file path. With prefix arg, append :LINE."
+  (interactive "P")
+  (let ((fpath buffer-file-name))
+    (if fpath
+        (let ((result (if with-line
+                          (format "%s:%d" fpath (line-number-at-pos))
+                        fpath)))
+          (kill-new result)
+          (message "Copied: %s" result))
+      (message "No current file!"))))
+
+(define-key azos/global-minor-mode/open-keymap (kbd "f") #'azos/copy-file-name)
 #+end_src
 
 *** Font candidate

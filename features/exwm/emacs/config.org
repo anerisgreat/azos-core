@@ -60,17 +60,18 @@ We execute the following code only if started with EXWM argument
 (defvar azos/exwm/title-debounce-timers (make-hash-table :test 'eq)
   "Map of buffer → pending title-rename timer, used to debounce qutebrowser windows.")
 
+(defun azos/exwm/do-title-rename (buf title)
+  (remhash buf azos/exwm/title-debounce-timers)
+  (when (buffer-live-p buf)
+    (with-current-buffer buf
+      (exwm-workspace-rename-buffer title))))
+
 (defun azos/exwm/debounce-title-rename (title buf)
   "Schedule a rename of BUF to TITLE after 0.5s, cancelling any pending rename for BUF."
   (let ((existing (gethash buf azos/exwm/title-debounce-timers)))
     (when existing (cancel-timer existing)))
   (puthash buf
-           (run-with-timer 0.5 nil
-             (lambda ()
-               (remhash buf azos/exwm/title-debounce-timers)
-               (when (buffer-live-p buf)
-                 (with-current-buffer buf
-                   (exwm-workspace-rename-buffer title)))))
+           (run-with-timer 0.5 nil #'azos/exwm/do-title-rename buf title)
            azos/exwm/title-debounce-timers))
 #+end_src
 

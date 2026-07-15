@@ -266,7 +266,7 @@ https://github.com/karthink/elfeed-tube
 (use-package pass
   :bind
     (:map azos/global-minor-mode/open-keymap
-        ("p" . 'password-store-copy)))
+        ("p" . password-store-copy)))
 #+end_src
 
 ** Calendar

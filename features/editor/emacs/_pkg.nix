@@ -16,7 +16,7 @@
 in
   orgTrivialBuild {
     pname = "azos-emacs-editor";
-    version = "0.1.7";
+    version = "0.1.8";
     src = ./config.org;
     packageRequires =
       [
@@ -24,6 +24,7 @@ in
         ghgptel
       ]
       ++ (with epkgs; [
+        auctex
         graphviz-dot-mode
         markdown-mode
         markdown-toc

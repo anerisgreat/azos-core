@@ -237,6 +237,15 @@ Harper is a grammar and spell checker. We use =eglot= (built-in) with
                '((markdown-mode gfm-mode org-mode) . ("harper-ls" "--stdio"))))
 #+end_src
 
+** PDF Tools
+
+#+begin_src emacs-lisp
+(use-package pdf-tools
+  :magic ("%PDF" . pdf-view-mode)
+  :config
+  (pdf-loader-install))
+#+end_src
+
 * ORG
 
 ** PDF exporting
@@ -490,6 +499,38 @@ https://karthinks.com/software/scaling-latex-previews-in-emacs/
            (file+datetree "~/roam/journal.org")
            "* %?\n  Entered on %U\n")))
   (define-key azos/roam-keymap (kbd "n") #'org-capture))
+#+end_src
+
+* LaTeX
+
+** Setup
+
+AUCTeX for =.tex= files. Strips =lines-tail= whitespace highlighting (long lines are normal in prose documents) and ensures visual-line wrapping.
+
+#+begin_src emacs-lisp
+(add-to-list 'auto-mode-alist '("\\.tex\\'" . LaTeX-mode))
+
+(defun azos/latex-mode-setup ()
+  (setq-local whitespace-style '(face tabs trailing tab-mark indentation))
+  (visual-line-mode 1))
+
+(add-hook 'LaTeX-mode-hook #'azos/latex-mode-setup)
+
+(with-eval-after-load 'tex
+  (setq TeX-auto-save t
+        TeX-parse-self t))
+#+end_src
+
+** Math preview
+
+preview-latex is bundled with AUCTeX. Use the same scale as org-mode previews.
+Trigger with =C-c C-p C-b= (buffer) or =C-c C-p C-p= (at point).
+
+#+begin_src emacs-lisp
+(with-eval-after-load 'preview
+  (setq preview-scale-function 1.5
+        preview-auto-cache-preamble nil
+        preview-dumped-alist nil))
 #+end_src
 
 * Provide
