@@ -54,6 +54,22 @@ We execute the following code only if started with EXWM argument
     ))
 #+end_src
 
+** XELB timeout safety
+
+Guard against XELB reply timeouts returning nil inside =exwm-input--set-focus=.
+When =GetInputFocus= times out (X server grab during app startup), EXWM crashes
+with =wrong-type-argument= instead of recovering gracefully.
+
+#+begin_src emacs-lisp
+(defun azos/exwm/safe-set-focus (orig id)
+  (condition-case nil
+      (funcall orig id)
+    (wrong-type-argument
+     (exwm--log "XELB reply timeout in set-focus for #x%x, skipping" id))))
+
+(advice-add 'exwm-input--set-focus :around #'azos/exwm/safe-set-focus)
+#+end_src
+
 ** Smart buffer naming
 
 #+begin_src emacs-lisp
@@ -142,11 +158,20 @@ Here are a few examples:
 
 (defun azos/exwm/start-qutebrowser ()
   (interactive)
-  (start-process "qutebrowser" nil "qutebrowser"))
+  (let ((process-environment
+         (append '("LIBGL_ALWAYS_SOFTWARE=1"
+                   "QT_XCB_GL_INTEGRATION=none"
+                   "QTWEBENGINE_DISABLE_SANDBOX=1")
+                 process-environment)))
+    (start-process "qutebrowser" nil "qutebrowser")))
+
+(defun azos/exwm/start-chromium ()
+  (interactive)
+  (start-process "chromium" nil "chromium" "--app=https://www.google.com"))
 
 (add-hook 'azos/exwm/load-hook (lambda () (progn
     (define-key azos/global-minor-mode/open-keymap
-        (kbd "q") 'azos/exwm/start-qutebrowser)
+        (kbd "q") 'azos/exwm/start-chromium)
     (define-key azos/global-minor-mode/keymap
         (kbd "<print>") 'azos/exwm/take-screenshot))))
 #+end_src

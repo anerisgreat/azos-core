@@ -60,8 +60,6 @@ Defining a function to copy filename.
           (kill-new result)
           (message "Copied: %s" result))
       (message "No current file!"))))
-
-(define-key azos/global-minor-mode/open-keymap (kbd "f") #'azos/copy-file-name)
 #+end_src
 
 *** Font candidate
@@ -124,6 +122,8 @@ Setting of keybindings based on [[https://stackoverflow.com/questions/49853494/t
 (defvar azos/global-minor-mode/open-keymap
   (make-sparse-keymap)
   "global keymap for opening stuff on azos")
+
+(define-key azos/global-minor-mode/open-keymap (kbd "f") #'azos/copy-file-name)
 #+end_src
 
 At this stage a minor-mode-map is defined with keybindings, and an accompanying minor-mode is added.

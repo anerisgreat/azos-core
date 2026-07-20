@@ -41,6 +41,7 @@
       azos.claude.globalSkills = {
         todo = ./skills/todo.md;
         project-brain = ./skills/project-brain.md;
+        work-history = ./skills/work-history.md;
       };
 
       azos.claude.globalMdSections.project-brain = ''
