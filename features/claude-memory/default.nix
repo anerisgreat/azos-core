@@ -68,7 +68,7 @@
           --arg cmd "${pkgs.org-roam-mcp}/bin/org-roam-mcp" \
           --arg roamDir "${config.azos.claude-memory.orgRoamDir}" \
           --arg dbPath "${config.azos.claude-memory.orgRoamDbPath}" \
-          '{command: $cmd, args: [], env: {ORG_ROAM_DIR: $roamDir, ORG_ROAM_DB_PATH: $dbPath}}')
+          '{command: $cmd, args: [], env: {ORG_ROAM_DIR: $roamDir, ORG_ROAM_DB_PATH: $dbPath, PYTHONPATH: ""}}')
 
         if [ -f "$CLAUDE_JSON" ]; then
           tmp=$(mktemp)
