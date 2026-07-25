@@ -18,12 +18,20 @@
           {id = "hfjbmagddngcpeloejdejnfgbamkjaeg";} # Vimium-C
         ];
       };
+      xdg.desktopEntries.chromium-app = {
+        name = "Chromium (App Mode)";
+        exec = "chromium --app=%u";
+        icon = "chromium";
+        categories = ["Network" "WebBrowser"];
+        mimeType = ["x-scheme-handler/http" "x-scheme-handler/https" "text/html"];
+      };
+
       xdg.mimeApps = {
         enable = true;
         defaultApplications = {
-          "x-scheme-handler/http" = "chromium-browser.desktop";
-          "x-scheme-handler/https" = "chromium-browser.desktop";
-          "text/html" = "chromium-browser.desktop";
+          "x-scheme-handler/http" = "chromium-app.desktop";
+          "x-scheme-handler/https" = "chromium-app.desktop";
+          "text/html" = "chromium-app.desktop";
         };
       };
     };

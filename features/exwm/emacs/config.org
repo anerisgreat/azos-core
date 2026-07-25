@@ -94,12 +94,19 @@ with =wrong-type-argument= instead of recovering gracefully.
 #+begin_src emacs-lisp
 (add-hook 'azos/exwm/load-hook (lambda () (progn
 
+(defun azos/exwm/chromium-p ()
+  "Return non-nil if the current EXWM buffer belongs to Chromium.
+Chromium uses its class name when in normal mode but sets the instance
+name to the URL when launched in --app mode, so we check both."
+  (or (string-prefix-p "chromium" (or exwm-instance-name ""))
+      (string-prefix-p "chromium" (downcase (or exwm-class-name "")))))
+
 (add-hook 'exwm-update-class-hook
           (lambda ()
             (unless (or (string-prefix-p "sun-awt-X11-" exwm-instance-name)
                         (string= "gimp" exwm-instance-name)
                         (string-prefix-p "qute" exwm-instance-name)
-                        (string-prefix-p "chromium" exwm-instance-name))
+                        (azos/exwm/chromium-p))
               (exwm-workspace-rename-buffer exwm-class-name))))
 
 (add-hook 'exwm-update-title-hook
@@ -107,7 +114,7 @@ with =wrong-type-argument= instead of recovering gracefully.
             (cond
               ((string-prefix-p "qute" (or exwm-instance-name ""))
                (azos/exwm/debounce-title-rename exwm-title (current-buffer)))
-              ((string-prefix-p "chromium" (or exwm-instance-name ""))
+              ((azos/exwm/chromium-p)
                (azos/exwm/debounce-title-rename exwm-title (current-buffer)))
               ((or (not exwm-instance-name)
                    (string-prefix-p "sun-awt-X11-" exwm-instance-name)
