@@ -144,6 +144,7 @@ https://medium.com/emacs/using-elfeed-to-view-videos-6dfc798e51e6
 
 #+begin_src emacs-lisp
 (use-package elfeed
+    :defer t
     :init
         (defun azos/elfeed/v-mpv (url)
             "Watch a video from URL in MPV"
@@ -213,7 +214,8 @@ https://github.com/karthink/elfeed-tube
 ** Calendar
 
 #+begin_src emacs-lisp
-(evil-collection-calendar-setup)
+(with-eval-after-load 'calendar
+  (evil-collection-calendar-setup))
 #+end_src
 
 ** OpenSCAD
