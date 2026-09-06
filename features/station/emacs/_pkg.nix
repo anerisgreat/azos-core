@@ -10,7 +10,7 @@ orgTrivialBuild {
   packageRequires = with epkgs; [
     pkgs.azos-emacs-base
 
-    notmuch #TODO CHECK, ALSO FOR THIS CONFIGURE ALL PACKAGES N STUFF
+    mu4e
     elfeed #PROBABLY ALSO BUILT IN
     elfeed-tube
     pass
