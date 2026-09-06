@@ -475,6 +475,17 @@ We use [[https://emacs.stackexchange.com/questions/5529/how-to-right-align-some-
 We use [[https://www.reddit.com/r/emacs/comments/4mhphb/spacemacs_how_to_limit_the_length_of_displayed/][this article]] to try and limit the mode name length.
 
 #+begin_src emacs-lisp
+(defvar azos/modeline/indicators '()
+  "Functions to call to produce extra mode-line indicator strings.
+Each function takes no arguments and returns either a propertized
+string, or nil if it has nothing to show for the current buffer.")
+
+(defun azos/modeline/indicators-func ()
+  "Concatenate all non-nil results of `azos/modeline/indicators'."
+  (mapconcat 'identity
+             (delq nil (mapcar 'funcall azos/modeline/indicators))
+             ""))
+
 (setq evil-normal-state-tag   (propertize " NORMAL  " 'face 'evil-hl-line-normal)
       evil-emacs-state-tag    (propertize " EMACS   " 'face 'evil-hl-line-emacs)
       evil-insert-state-tag   (propertize " INSERT  " 'face 'evil-hl-line-insert)
@@ -501,6 +512,7 @@ We use [[https://www.reddit.com/r/emacs/comments/4mhphb/spacemacs_how_to_limit_t
         ;;Right
         (concat
             (format-mode-line "%5lL%4cC ")
+            (azos/modeline/indicators-func)
             evil-mode-line-tag)))))
 #+end_src
 

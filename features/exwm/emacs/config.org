@@ -222,6 +222,34 @@ Enabling randr. Automatic mapping of randr screens to workspaces.
         (kbd "s-x") 'azos/exwm/update-randr-monitor-plist))))
 #+end_src
 
+** Modeline indicator
+
+Shows whether the focused EXWM window is in =line-mode= (Emacs captures keys) or
+=char-mode= (the app captures keys), mirroring the evil-state tag. Registers into
+=azos/modeline/indicators= (see =base/emacs/config.org=) rather than editing
+=mode-line-format= directly.
+
+#+begin_src emacs-lisp
+(defface azos/exwm/modeline-line-mode-face
+  '((t :background "green4" :foreground "white" :weight bold))
+  "Face for the EXWM line-mode mode-line indicator.")
+
+(defface azos/exwm/modeline-char-mode-face
+  '((t :background "red3" :foreground "white" :weight bold))
+  "Face for the EXWM char-mode mode-line indicator.")
+
+(defun azos/exwm/modeline-indicator ()
+  "Return a propertized EXWM input-mode tag, or nil outside `exwm-mode' buffers."
+  (when (derived-mode-p 'exwm-mode)
+    (if (eq exwm--input-mode 'line-mode)
+        (propertize " LINE " 'face 'azos/exwm/modeline-line-mode-face)
+      (propertize " CHAR " 'face 'azos/exwm/modeline-char-mode-face))))
+
+(add-hook 'azos/exwm/load-hook (lambda ()
+    (cl-pushnew 'azos/exwm/modeline-indicator azos/modeline/indicators)
+    (add-hook 'exwm-input-input-mode-change-hook #'force-mode-line-update)))
+#+end_src
+
 ** Prefix keys
 
 Sending simulated keys to X windows
@@ -230,6 +258,40 @@ Sending simulated keys to X windows
     (setq exwm-input-prefix-keys
     '(?\C-x ?\C-u ?\C-h ?\M-x ?\M-& ?\M-: ?\s-d
             ?\s-m ?\s-r ?\s-s ?\s-q ?\H-l ?\C-w ?\C-c ?\C-@)))))
+#+end_src
+
+Even in =line-mode=, EXWM only forwards a keypress to Emacs if it's in
+=exwm-input-prefix-keys=, one of the global keys, or bound directly in
+=exwm-mode-map=; it never consults minor-mode keymaps. Since
+=azos/global-minor-mode/keymap= collects =M-<char>= shortcuts from many
+features (see its =(kbd "M-...")= bindings across =features/*/emacs/config.org=),
+every one of them would otherwise silently fail inside EXWM windows. Rather
+than hand-maintaining that list, harvest it once all features have loaded.
+
+#+begin_src emacs-lisp
+(defun azos/exwm/meta-prefix-keys ()
+  "Return the `M-<char>' event for every top-level binding in
+`azos/global-minor-mode/keymap', so EXWM forwards them to Emacs even
+while a window is in `line-mode' (see `exwm-input-prefix-keys')."
+  (let (keys (meta-map (lookup-key azos/global-minor-mode/keymap [27])))
+    (when (keymapp meta-map)
+      (map-keymap (lambda (event _binding)
+                    (when (integerp event)
+                      (push (logior event (ash 1 27)) keys)))
+                  meta-map))
+    keys))
+
+(defun azos/exwm/refresh-prefix-keys ()
+  "Extend `exwm-input-prefix-keys' with the Meta-prefixed shortcuts from
+`azos/global-minor-mode/keymap', so newly-added ones keep working inside
+EXWM windows without editing this file again."
+  (interactive)
+  (setq exwm-input-prefix-keys
+        (delete-dups (append exwm-input-prefix-keys (azos/exwm/meta-prefix-keys)))))
+
+;; Runs after every feature has finished loading and populated
+;; `azos/global-minor-mode/keymap', regardless of require order.
+(add-hook 'after-init-hook #'azos/exwm/refresh-prefix-keys)
 #+end_src
 
 ** Language toggle
