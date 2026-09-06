@@ -219,7 +219,7 @@ https://github.com/karthink/elfeed-tube
 ** OpenSCAD
 
 #+begin_src emacs-lisp
-(use-package scad-mode)
+(use-package scad-mode :defer t)
 
 ; Disabling for now
 ;; (use-package scad-preview

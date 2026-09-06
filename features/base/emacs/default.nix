@@ -79,6 +79,13 @@
         VISUAL = "emacsclient -c -a emacs";
       };
 
+      home.file.".emacs.d/early-init.el".text = ''
+        ;;; -*- lexical-binding: t; -*-
+        (setq gc-cons-threshold most-positive-fixnum)
+        (add-hook 'emacs-startup-hook
+          (lambda () (setq gc-cons-threshold 16777216)))
+      '';
+
       services.emacs = lib.mkIf (!config.azos.suites.exwm.enable) {
         enable = true;
       };

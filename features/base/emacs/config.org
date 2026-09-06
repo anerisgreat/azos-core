@@ -17,9 +17,6 @@
     kept-old-versions 2
     version-control t ;Backups for files
 
-    ;Garbage collection
-    gc-cons-threshold 100000000
-
     ;Set external cusotm file
     custom-file (expand-file-name "custom.el" user-emacs-directory)
 )
@@ -459,6 +456,7 @@ Useful to have even if I rarely use it.
 
 #+begin_src emacs-lisp
 (use-package olivetti
+  :defer t
   :init
   (setq olivetti-body-width 96))
 #+end_src
@@ -800,9 +798,7 @@ Helps with many functions to use counsel's/ivy's autocomplete with projectile.
 Ensuring tramp is loaded, and loading counsel-tramp for easy tramping.
 
 #+begin_src emacs-lisp
-(require 'tramp)
-
-(use-package counsel-tramp)
+(use-package counsel-tramp :defer t)
 #+end_src
 
 ** Dired
@@ -944,22 +940,20 @@ were used in the appropriate major mode.
 Define languages to use
 
 #+begin_src emacs-lisp
-(require 'ob)
-(require 'ob-tangle)
-
-;; TODO Not sure I like this here
-(org-babel-do-load-languages
- 'org-babel-load-languages
- '((shell . t)
-   (emacs-lisp . t)
-   (python . t)
-   (org . t)
-   (lilypond . t)
-   (latex . t)
-   (js . t)
-   (java . t)
-   (dot . t)
-   (C . t)))
+(with-eval-after-load 'org
+  (require 'ob-tangle)
+  (org-babel-do-load-languages
+   'org-babel-load-languages
+   '((shell . t)
+     (emacs-lisp . t)
+     (python . t)
+     (org . t)
+     (lilypond . t)
+     (latex . t)
+     (js . t)
+     (java . t)
+     (dot . t)
+     (C . t))))
 
 ;; TODO move these around
 ;; (add-to-list 'org-src-lang-modes (quote ("dot". graphviz-dot)))
@@ -1214,15 +1208,13 @@ than spawning a nested emacs process.
 
 #+begin_src emacs-lisp
 (use-package direnv
-  :ensure t
-  :config
-  (direnv-mode))          ; global minor mode
+  :hook (after-init . direnv-mode))
 #+end_src
 
 ** CSV mode
 
 #+begin_src emacs-lisp
-(use-package csv-mode)
+(use-package csv-mode :defer t)
 #+end_src
 
 ** Cabata
