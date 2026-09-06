@@ -16,7 +16,7 @@
         enable = true;
         settings = {
           default_session = {
-            command = "${pkgs.tuigreet}/bin/tuigreet --time --user-menu --cmd '/home/$(whoami)/.login.sh'";
+            command = "${pkgs.tuigreet}/bin/tuigreet --time --user-menu --user-menu-min-uid 1000 --user-menu-max-uid 29999 --cmd '/home/$(whoami)/.login.sh'";
             user = "greeter";
           };
         };

@@ -91,7 +91,7 @@ mu index
                   (mu4e-sent-folder   . "/bgu/[Gmail]/Sent Mail")
                   (mu4e-drafts-folder . "/bgu/[Gmail]/Drafts")
                   (mu4e-trash-folder  . "/bgu/[Gmail]/Trash")
-                  (mu4e-refile-folder . "/bgu/[Gmail]/All Mail"))))
+                  (mu4e-refile-folder . "/bgu/[Gmail]/All Mail")))))
   (setq mu4e-bookmarks
         '((:name "Inbox"  :query "maildir:/zakobar/INBOX OR maildir:/gmail/INBOX OR maildir:/bgu/INBOX" :key ?i)
           (:name "Unread" :query "flag:unread AND NOT flag:trashed" :key ?u)

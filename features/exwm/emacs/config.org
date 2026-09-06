@@ -142,7 +142,7 @@ Here are a few examples:
         ([s-f2] . (lambda ()
             (interactive)
             (start-process "" nil "/usr/bin/slock")))
-        ([s-<tab>] . persp-switch)
+        ([s-tab] . persp-switch)
         ;; Bind "s-r" to exit char-mode and fullscreen mode.
         ([?\s-r] . exwm-reset)
         ;; Bind "s-w" to switch workspace interactively.
