@@ -527,7 +527,7 @@ Loading yasnippet. Useful for snippeting. Mode-specific snippets defined in rele
 (use-package yasnippet
   :config
     (setq yas-snippet-dirs '())
-    (yas-global-mode 1)
+    (unless noninteractive (yas-global-mode 1))
 )
 #+end_src
 
@@ -1116,8 +1116,8 @@ Snippet for src blocks
 *** Imenu quirks
 
 #+begin_src emacs-lisp
-(add-to-list 'org-fold-show-context-detail '(isearch . tree))
-(add-to-list 'org-fold-show-context-detail '(default . tree))
+(add-to-list 'org-fold-show-context '(isearch . tree))
+(add-to-list 'org-fold-show-context '(default . tree))
 #+end_src
 
 ** Ibuffer
