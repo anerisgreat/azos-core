@@ -1,7 +1,6 @@
-{pkgs}: (pkgs.texlive.combine {
-  inherit
-    (pkgs.texlive)
-    scheme-small
+{pkgs}:
+pkgs.texliveSmall.withPackages (ps:
+  with ps; [
     collection-binextra
     collection-fontsextra
     #Org PDF stuff
@@ -39,5 +38,4 @@
     braket
     fontawesome
     pygmentex
-    ;
-})
+  ])
