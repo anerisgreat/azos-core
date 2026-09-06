@@ -1116,8 +1116,8 @@ Snippet for src blocks
 *** Imenu quirks
 
 #+begin_src emacs-lisp
-(add-to-list 'org-show-context-detail '(isearch . tree))
-(add-to-list 'org-show-context-detail '(default . tree))
+(add-to-list 'org-fold-show-context-detail '(isearch . tree))
+(add-to-list 'org-fold-show-context-detail '(default . tree))
 #+end_src
 
 ** Ibuffer
