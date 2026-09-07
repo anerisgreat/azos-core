@@ -97,6 +97,10 @@ mu index
           (:name "Unread" :query "flag:unread AND NOT flag:trashed" :key ?u)
           (:name "Today"  :query "date:today..now AND NOT flag:trashed" :key ?t)
           (:name "Week"   :query "date:7d..now AND NOT flag:trashed" :key ?w)))
+  (setq mu4e-maildir-shortcuts
+        '((:maildir "/zakobar/Inbox" :key ?z)
+          (:maildir "/gmail/Inbox"   :key ?g)
+          (:maildir "/bgu/Inbox"     :key ?b)))
   :bind
   (:map azos/global-minor-mode/open-keymap
         ("m" . mu4e)))
