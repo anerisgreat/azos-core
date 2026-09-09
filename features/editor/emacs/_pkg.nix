@@ -13,6 +13,32 @@
       sha256 = "sha256-5sdjIiIOJEYzDN9o+iIz0AYdmtbEgbd8uec05BeQhb0=";
     };
   };
+
+  latex-to-svg-backend = epkgs.callPackage epkgs.trivialBuild {
+    pname = "latex-to-svg-backend";
+    version = "0.8.3";
+    src = pkgs.fetchFromGitHub {
+      owner = "alberti42";
+      repo = "latex-to-svg-backend";
+      rev = "bbc7f921aa45716feade13e83bfd562fab219161";
+      sha256 = "sha256-OLa6gt/dAAXRC0sUjbvXAk1MXofwZhXWHNEkcy2AqMg=";
+    };
+  };
+
+  agent-shell-math-renderer = epkgs.callPackage epkgs.trivialBuild {
+    pname = "agent-shell-math-renderer";
+    version = "0.9.1";
+    src = pkgs.fetchFromGitHub {
+      owner = "alberti42";
+      repo = "agent-shell-math-renderer";
+      rev = "d35fb02d2a10cad7fee5fe101f7ca3f4396919fe";
+      sha256 = "sha256-LYFpnN5VjJTPIOTeY5Uo+UJ1g86oCpYtU+aWX5ZVE9Q=";
+    };
+    buildInputs = [
+      epkgs.agent-shell
+      latex-to-svg-backend
+    ];
+  };
 in
   orgTrivialBuild {
     pname = "azos-emacs-editor";
@@ -33,6 +59,8 @@ in
         pdf-tools
         pandoc-mode
         agent-shell
+        latex-to-svg-backend
+        agent-shell-math-renderer
         markdown-table-wrap
         (epkgs.callPackage epkgs.trivialBuild {
           pname = "gptel-autocomplete";
