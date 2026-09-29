@@ -79,6 +79,35 @@
         VISUAL = "emacsclient -c -a emacs";
       };
 
+      home.packages = [
+        (pkgs.writeShellApplication {
+          name = "azos-edit-stdin";
+          text = ''
+            usage() {
+              cat <<EOF
+            Usage: some-command | azos-edit-stdin
+
+            Reads stdin into a temp file and opens it in \$EDITOR
+            (falls back to "emacsclient -t -a emacs" if unset).
+            The temp file is removed once the editor exits.
+            EOF
+            }
+
+            if [[ "''${1:-}" == "-h" || "''${1:-}" == "--help" ]]; then
+              usage
+              exit 0
+            fi
+
+            tmpfile="$(mktemp)"
+            trap 'rm -f "$tmpfile"' EXIT
+            cat > "$tmpfile"
+
+            IFS=' ' read -ra editor_cmd <<< "''${EDITOR:-emacsclient -t -a emacs}"
+            "''${editor_cmd[@]}" "$tmpfile"
+          '';
+        })
+      ];
+
       home.file.".emacs.d/early-init.el".text = ''
         ;;; -*- lexical-binding: t; -*-
         (setq gc-cons-threshold most-positive-fixnum)

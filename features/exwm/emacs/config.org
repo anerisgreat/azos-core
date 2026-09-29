@@ -353,6 +353,23 @@ confirms and pastes the result back.
 (use-package pulseaudio-control :after exwm)
 #+end_src
 
+** Network (ENWC)
+
+Keyboard-driven WiFi management via NetworkManager's D-Bus API, in place of
+=nmtui=. =M-o w= opens the ENWC buffer: =s= scans, =RET= connects to the
+network at point, =d= disconnects.
+
+#+begin_src emacs-lisp
+(use-package enwc
+  :after exwm
+  :config
+  (require 'enwc-nm)
+  (setq enwc-default-backend 'nm)
+  :bind
+  (:map azos/global-minor-mode/open-keymap
+        ("w" . enwc)))
+#+end_src
+
 ** Media keys
 
 https://gist.github.com/ajyoon/5323b999a01dce8db2d4456da1740fe3
@@ -373,20 +390,20 @@ https://gist.github.com/ajyoon/5323b999a01dce8db2d4456da1740fe3
          (kbd "<XF86AudioRaiseVolume>")
          (lambda ()
            (interactive)
-           (start-process
-            "wpctl" nil "wpctl" "set-volume" "@DEFAULT_AUDIO_SINK@" "5%+")))
+           (azos/audio/run-wpctl-then-refresh
+            "set-volume" "-l" "1.0" "@DEFAULT_AUDIO_SINK@" "5%+")))
         (exwm-input-set-key
          (kbd "<XF86AudioLowerVolume>")
          (lambda ()
            (interactive)
-           (start-process
-            "wpctl" nil "wpctl" "set-volume" "@DEFAULT_AUDIO_SINK@" "5%-")))
+           (azos/audio/run-wpctl-then-refresh
+            "set-volume" "-l" "1.0" "@DEFAULT_AUDIO_SINK@" "5%-")))
         (exwm-input-set-key
          (kbd "<XF86AudioMute>")
          (lambda ()
            (interactive)
-           (start-process
-            "wpctl" nil "wpctl" "set-mute" "@DEFAULT_AUDIO_SINK@" "toggle")))
+           (azos/audio/run-wpctl-then-refresh
+            "set-mute" "@DEFAULT_AUDIO_SINK@" "toggle")))
 
         (exwm-input-set-key
             (kbd "<XF86AudioPlay>")
@@ -490,9 +507,9 @@ new process, should it be displayed in a new buffer/tab.
          (vol-line (or (car lines) ""))
          (sink-name (or (cadr lines) ""))
          ;; Parse volume: "Volume: 0.45 [MUTED]" → integer percentage
-         (vol-parts (split-string vol-line "\\."))
-         (dec (or (cadr vol-parts) "0"))
-         (volume (string-to-number (car (split-string dec "[^0-9]"))))
+         (volume (round (* 100 (if (string-match "Volume:\\s-+\\([0-9.]+\\)" vol-line)
+                                    (string-to-number (match-string 1 vol-line))
+                                  0))))
          (ismute (string-match-p "\\[MUTED\\]" vol-line))
          ;; Pick icon from sink name
          (icon (cond
@@ -512,7 +529,11 @@ new process, should it be displayed in a new buffer/tab.
             (condition-case nil
                 (azos/audio/parse-status-output output)
               (error nil)))
-      (kill-buffer (process-buffer process)))))
+      (kill-buffer (process-buffer process))
+      ;; Sentinels run with an arbitrary current buffer, not necessarily the
+      ;; one whose frame shows the tab-bar, so force ALL frames to redraw
+      ;; rather than just the (possibly wrong) current buffer's mode line.
+      (force-mode-line-update t))))
 
 (defun azos/audio/set-status-string ()
   "Asynchronously update the audio tab-bar status string."
@@ -521,6 +542,13 @@ new process, should it be displayed in a new buffer/tab.
                 "azos-audio-status" buf
                 "{ wpctl get-volume @DEFAULT_AUDIO_SINK@; wpctl inspect @DEFAULT_AUDIO_SINK@ | grep 'node.name' | awk -F'\"' '{print $2}'; }")))
     (set-process-sentinel proc #'azos/audio/set-status-string-sentinel)))
+
+(defun azos/audio/run-wpctl-then-refresh (&rest wpctl-args)
+  "Run `wpctl' with WPCTL-ARGS, then refresh the tab-bar status string
+as soon as it exits, instead of waiting for the periodic timer."
+  (let ((proc (apply #'start-process "wpctl" nil "wpctl" wpctl-args)))
+    (set-process-sentinel
+     proc (lambda (_proc _event) (azos/audio/set-status-string)))))
 
 (defun azos/audio/get-status-string () "Get audio string"
        (if azos/audio/status-string azos/audio/status-string ""))

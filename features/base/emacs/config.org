@@ -259,6 +259,20 @@ Setting up keymaps
 (set-locale-environment "en_US.UTF-8")
 #+end_src
 
+** Auth Source (pass)
+
+Route Emacs' generic =auth-source-search= (used by lichess.el,
+gptel, mu4e, tramp, etc.) through the =pass= password store, so
+package tokens/passwords can live in =pass= instead of
+=~/.authinfo= or hardcoded in this config. Store an entry under the
+bare hostname the caller searches on (e.g. =pass insert lichess.org=)
+per the flat naming convention already used for mbsync/caldav.
+
+#+begin_src emacs-lisp
+(require 'auth-source-pass)
+(auth-source-pass-enable)
+#+end_src
+
 * UI
 ** General
 *** Clean UI
@@ -798,6 +812,11 @@ Helps with many functions to use counsel's/ivy's autocomplete with projectile.
   :config
     (counsel-projectile-mode +1)
     (setq projectile-completion-system 'ivy)
+    ;; Route counsel-projectile-grep through git-grep: newer projectile
+    ;; removed `projectile-ignored-files-rel'/`-directories-rel', which
+    ;; the plain-grep path in counsel-projectile (unmaintained since 2021)
+    ;; still calls. The git-grep path doesn't use those functions.
+    (setq projectile-use-git-grep t)
     ;Making counsel start with empty regex
     (when (commandp 'counsel-M-x)
         (global-set-key [remap execute-extended-command] 'counsel-M-x))

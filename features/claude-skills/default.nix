@@ -42,13 +42,15 @@
         todo = ./skills/todo.md;
         project-brain = ./skills/project-brain.md;
         work-history = ./skills/work-history.md;
+        workplate = ./skills/workplate.md;
       };
 
       azos.claude.globalMdSections.project-brain = ''
         # Project Knowledge (org-roam Second Brain)
 
-        At the start of every session, invoke the `project-brain` skill to load
-        known context from org-roam for the current project before doing any work.
+        At the start of a session, if your current knowledgee is insufficient to
+        complete the task, invoke the `project-brain` skill to load known
+        context for the current project.
 
         When you discover something significant about a project that is not already
         in org-roam (architecture decisions, non-obvious conventions, key file

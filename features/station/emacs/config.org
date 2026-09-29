@@ -247,10 +247,7 @@ https://github.com/karthink/elfeed-tube
 ** Weather
 
 #+begin_src emacs-lisp
-(use-package wttrin
-  :bind
-    (:map azos/global-minor-mode/open-keymap
-        ("w" . wttrin)))
+(use-package wttrin)
 #+end_src
 
 * Provide

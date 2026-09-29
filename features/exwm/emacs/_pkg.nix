@@ -16,5 +16,6 @@ orgTrivialBuild {
     desktop-environment
     bluetooth
     pulseaudio-control
+    enwc
   ];
 }
