@@ -5,7 +5,7 @@
 }:
 orgTrivialBuild {
   pname = "azos-emacs-exwm";
-  version = "0.1.8";
+  version = "0.1.9";
   src = ./config.org;
   packageRequires = with epkgs; [
     pkgs.azos-emacs-base
@@ -17,5 +17,6 @@ orgTrivialBuild {
     bluetooth
     pulseaudio-control
     enwc
+    ednc
   ];
 }

@@ -13,6 +13,10 @@
       azos.suites.base.enable = lib.mkDefault true;
       azos.suites.station.enable = lib.mkDefault true;
 
+      # EDNC (Emacs Desktop Notification Center) runs as the notification
+      # daemon instead — see azos-core/features/exwm/emacs/config.org.
+      services.dunst.enable = lib.mkForce false;
+
       home.packages = with pkgs; [ffmpeg-full imv xkb-switch];
       xdg.mimeApps.defaultApplications = {"image/gif" = "imv.desktop";};
       services.udiskie = {

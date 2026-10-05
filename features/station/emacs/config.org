@@ -101,9 +101,13 @@ mu index
         '((:maildir "/zakobar/Inbox" :key ?z)
           (:maildir "/gmail/Inbox"   :key ?g)
           (:maildir "/bgu/Inbox"     :key ?b)))
+  (defun azos/mail/open ()
+    "Open mu4e in its dedicated \"mail\" tab."
+    (interactive)
+    (azos/tab-bar/open-singleton-tab "mail" #'mu4e))
   :bind
   (:map azos/global-minor-mode/open-keymap
-        ("m" . mu4e)))
+        ("m" . azos/mail/open)))
 #+end_src
 
 *** Signatures
@@ -172,8 +176,59 @@ https://medium.com/emacs/using-elfeed-to-view-videos-6dfc798e51e6
             (point-max))))
 
         (setq-default elfeed-search-filter "@3-days-ago")
+
+        (defun azos/elfeed/open ()
+          "Open elfeed in its dedicated \"elfeed\" tab."
+          (interactive)
+          (azos/tab-bar/open-singleton-tab "elfeed" #'elfeed))
     :config
         (evil-collection-elfeed-setup)
+
+        ;; `global-visual-line-mode' (azos-core/features/base/emacs/config.org)
+        ;; overrides elfeed-search-mode's own `truncate-lines' setting, so
+        ;; every entry line soft-wraps in anything less than a full-width
+        ;; window. Elfeed already wants truncated, not wrapped, lines here.
+        ;; `global-visual-line-mode' turns itself on via
+        ;; `after-change-major-mode-hook', which runs *after*
+        ;; `elfeed-search-mode-hook' - so disabling it there (as a first
+        ;; attempt did) toggled visual-line-mode off before it was ever
+        ;; turned on. Its off-toggle unconditionally kills the local
+        ;; `truncate-lines' value and restores it from a saved snapshot -
+        ;; with no prior "on" phase, there's no snapshot, so the kill wins
+        ;; and `truncate-lines' is left nil (still soft-wrapping, just at
+        ;; character instead of word boundaries). Disabling it from the
+        ;; same later hook (past the global mode's own entry) lets the
+        ;; snapshot/restore dance complete correctly - but assert
+        ;; `truncate-lines' explicitly afterwards anyway, so the outcome
+        ;; doesn't depend on that internal save/restore mechanism at all.
+        (add-hook 'after-change-major-mode-hook
+                  (lambda ()
+                    (when (derived-mode-p 'elfeed-search-mode)
+                      (visual-line-mode -1)
+                      (setq-local truncate-lines t)))
+                  100)
+
+        ;; Elfeed renders HTML content (via shr) hard-wrapped to the
+        ;; window's width at render time; resizing/splitting afterwards
+        ;; leaves the old wrap width in place. Re-render on resize,
+        ;; preserving (approximately) where point was so it doesn't jump
+        ;; back to the top of the article.
+        (defvar-local azos/elfeed-show--last-width nil)
+        (defun azos/elfeed-show-refresh-on-resize (&rest _)
+          (when (derived-mode-p 'elfeed-show-mode)
+            (let ((width (window-body-width)))
+              (unless (equal width azos/elfeed-show--last-width)
+                (setq azos/elfeed-show--last-width width)
+                (let ((pos (point)))
+                  (elfeed-show-refresh)
+                  (goto-char (min pos (point-max))))))))
+        (add-hook 'elfeed-show-mode-hook
+                  (lambda ()
+                    (add-hook 'window-state-change-hook
+                              #'azos/elfeed-show-refresh-on-resize nil t)))
+    :bind
+        (:map azos/global-minor-mode/open-keymap
+              ("e" . azos/elfeed/open))
 )
 #+end_src
 

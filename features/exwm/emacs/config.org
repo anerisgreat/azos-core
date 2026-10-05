@@ -770,6 +770,23 @@ End the execute only if EXWM block.
 (define-key azos/global-minor-mode/open-keymap (kbd "s u") 'azos/storage/unmount)
 #+end_src
 
+* Notifications
+
+EDNC replaces dunst as the desktop notification daemon: instead of a separate
+process, it registers itself on the D-Bus session bus from within Emacs and
+logs notifications to the =*ednc-log*= buffer. =services.dunst.enable= is
+force-disabled in =exwm/default.nix= so the two don't fight over ownership
+of =org.freedesktop.Notifications=.
+
+#+begin_src emacs-lisp
+(use-package ednc
+  :config
+  (ednc-mode)
+  :bind
+  (:map azos/global-minor-mode/open-keymap
+        ("v" . (lambda () (interactive) (pop-to-buffer ednc-log-name)))))
+#+end_src
+
 * Screen Capture
 
 Functions for recording the screen to video (mp4) or GIF using =ffmpeg=.

@@ -200,6 +200,87 @@ RANGES is an alist containing block/body range positions."
 (define-key agent-shell-mode-map (kbd "C-c C-w") #'azos/agent-shell-rewrap-tables)
 #+end_src
 
+*** Tabs and status
+
+Each agent-shell session gets routed to its project's tab (via the
+=azos/tab-bar/open-singleton-tab= helper from the base config), or to a
+shared =agents= tab when it has no associated project. =agent-shell=
+already tracks every live session (=agent-shell-buffers=) and its status
+(=agent-shell-status=: =busy=, =blocked= on a permission prompt, or
+=ready=), and already provides a status-colored picker
+(=agent-shell--read-shell-buffer=) — this just adds the tab/window
+routing on top, and surfaces the same statuses as colored squares in the
+tab bar.
+
+#+begin_src emacs-lisp
+(defun azos/agent-shell/has-project-p ()
+  "Return non-nil if the current buffer's directory belongs to a
+known project (via projectile or project.el)."
+  (or (and (bound-and-true-p projectile-mode)
+           (fboundp 'projectile-project-p)
+           (projectile-project-p))
+      (project-current)))
+
+(defun azos/agent-shell/tab-name (buffer)
+  "Return the tab name for BUFFER's project, or the shared \"agents\"
+tab when BUFFER has no associated project."
+  (with-current-buffer buffer
+    (if (azos/agent-shell/has-project-p)
+        (agent-shell--project-name)
+      "agents")))
+
+(defun azos/agent-shell/display (buffer)
+  "Switch to BUFFER's project tab (or the shared \"agents\" tab).
+Selects the window already showing BUFFER if there is one, otherwise
+reuses the current window."
+  (azos/tab-bar/open-singleton-tab
+   (azos/agent-shell/tab-name buffer)
+   (lambda ()
+     (if-let* ((win (get-buffer-window buffer 0)))
+         (select-window win)
+       (switch-to-buffer buffer)))))
+
+(defun azos/agent-shell/switch-buffer ()
+  "Pick an agent-shell session and jump to it.
+See `azos/agent-shell/display' for the tab/window routing."
+  (interactive)
+  (require 'agent-shell)
+  (azos/agent-shell/display
+   (agent-shell--read-shell-buffer :prompt "Agent shell: ")))
+
+(define-key azos/llm-keymap (kbd "S") #'azos/agent-shell/switch-buffer)
+
+(defun azos/agent-shell/status-face (status)
+  "Return the face agent-shell uses to display STATUS."
+  (pcase status
+    ('busy 'agent-shell-warning)
+    ('blocked 'agent-shell-error)
+    (_ 'agent-shell-success)))
+
+(defun azos/tab-bar/agent-shell-status-string ()
+  "A row of colored squares, one per live agent-shell session.
+Colors mirror `azos/agent-shell/status-face'. Each square is clickable
+to jump to its session via `azos/agent-shell/display'."
+  (if (fboundp 'agent-shell-buffers)
+      (mapconcat
+       (lambda (buffer)
+         (propertize "■"
+                     'face (azos/agent-shell/status-face
+                            (agent-shell-status :shell-buffer buffer))
+                     'local-map (let ((map (make-sparse-keymap)))
+                                  (define-key map [mouse-1]
+                                    (lambda ()
+                                      (interactive)
+                                      (azos/agent-shell/display buffer)))
+                                  map)
+                     'help-echo (buffer-name buffer)))
+       (agent-shell-buffers)
+       "")
+    ""))
+
+(cl-pushnew 'azos/tab-bar/agent-shell-status-string azos/tab-bar/right-group)
+#+end_src
+
 ** Harper
 
 Harper is a grammar and spell checker. We use =eglot= (built-in) with
@@ -253,7 +334,8 @@ Harper is a grammar and spell checker. We use =eglot= (built-in) with
 (use-package pdf-tools
   :magic ("%PDF" . pdf-view-mode)
   :config
-  (pdf-loader-install))
+  (pdf-loader-install)
+  (setq pdf-misc-print-program-executable "lp"))
 #+end_src
 
 * ORG

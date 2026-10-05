@@ -336,7 +336,7 @@ We also use this section to bind keys.
     (tab-bar-mode 1)
 
     (set-face-attribute 'tab-bar nil
-                        :box t
+                        :box '(:color "DarkSlateGrey" :line-width 1)
                         :background "LightYellow3"
                         :foreground "DarkSlateGrey"
                         :font "LiberationMono"
@@ -438,6 +438,25 @@ By default let's enable the clock display
 
 #+begin_src emacs-lisp
 (azos/tab-bar/enable-clock-display)
+#+end_src
+
+*** Singleton App Tabs
+
+A helper for apps that should live in their own dedicated tab (mail,
+elfeed, etc.): switch to the tab by NAME, creating it first if it doesn't
+exist yet, then call ENTRY-FN. ENTRY-FN should be an idempotent "open or
+switch to" command for the app (e.g. =mu4e=, =elfeed=), since it's called
+every time regardless of whether the tab already existed.
+
+#+begin_src emacs-lisp
+(defun azos/tab-bar/open-singleton-tab (name entry-fn)
+  "Switch to the tab NAME, creating it first if necessary, then call ENTRY-FN."
+  (unless (member name (mapcar (lambda (tab) (alist-get 'name tab))
+                                (tab-bar-tabs)))
+    (tab-bar-new-tab)
+    (tab-bar-rename-tab name))
+  (tab-bar-select-tab-by-name name)
+  (funcall entry-fn))
 #+end_src
 
 *** Easy Prompt
@@ -787,11 +806,22 @@ A config line here disables modeline display because I don't want my modeline to
 
 Mapping modeline commands to =M-p= prefix. Also adding a shortcut to add project.
 
+Switching projects (whether via `projectile-switch-project' or
+`counsel-projectile-switch-to-project', both of which funnel through
+`projectile-switch-project-action') opens or switches to that project's
+tab first, then finds a file in it there.
+
 #+begin_src emacs-lisp
 (use-package projectile
   :config
     (projectile-mode +1)
     (setq projectile-mode-line-function (lambda () ""))
+    (defun azos/projectile/switch-project-action ()
+      "Open the current project's tab, then find a file in it."
+      (azos/tab-bar/open-singleton-tab
+       (projectile-project-name)
+       #'projectile-find-file))
+    (setq projectile-switch-project-action #'azos/projectile/switch-project-action)
   :bind
     (:map projectile-command-map
           ("a" . projectile-add-known-project)
@@ -821,6 +851,41 @@ Helps with many functions to use counsel's/ivy's autocomplete with projectile.
     (when (commandp 'counsel-M-x)
         (global-set-key [remap execute-extended-command] 'counsel-M-x))
     (setcdr (assoc 'counsel-M-x ivy-initial-inputs-alist) "")
+
+    ;; `M-p p' actually runs `counsel-projectile-switch-project', not plain
+    ;; `projectile-switch-project' - every one of its actions (including the
+    ;; default, bound to RET) `let'-binds `projectile-switch-project-action'
+    ;; to its own lambda before calling
+    ;; `counsel-projectile-switch-project-by-name', which shadows the global
+    ;; `setq' above for this entire path. Advise that shared funnel function
+    ;; instead, switching to the project's tab before its (shadowed) action
+    ;; runs, so the action's own effect (e.g. find-file) lands in that tab.
+    (advice-add 'counsel-projectile-switch-project-by-name :around
+      (lambda (orig-fn project)
+        (azos/tab-bar/open-singleton-tab
+         (projectile-project-name project)
+         (lambda () (funcall orig-fn project)))))
+)
+#+end_src
+
+** Tabspaces
+
+One tab per project: each tab keeps its own isolated buffer list, scoped by
+projectile's known projects. =tabspaces-mode= remaps =switch-to-buffer= to a
+version filtered to the current tab's buffers; a prefix arg (=C-u=) falls
+back to the unfiltered, all-buffers list.
+
+#+begin_src emacs-lisp
+(use-package tabspaces
+  :after projectile
+  :config
+    (setq tabspaces-project-switch-commands 'projectile)
+    (tabspaces-mode 1)
+  :bind
+    (:map azos/global-minor-mode/keymap
+          ("M-t j" . tabspaces-open-or-create-project-and-workspace)
+          ("M-t w" . tabspaces-switch-or-create-workspace)
+          ("M-t k" . tabspaces-close-workspace))
 )
 #+end_src
 

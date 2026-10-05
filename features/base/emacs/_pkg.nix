@@ -23,6 +23,7 @@ orgTrivialBuild {
     counsel-projectile
     swiper
     projectile
+    tabspaces
     which-key
     yasnippet
     evil-nerd-commenter
