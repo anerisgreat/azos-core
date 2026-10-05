@@ -62,18 +62,34 @@ needing to follow links.
 
 ### Save new knowledge (run after planning, research, or feature work — not just when explicitly asked)
 1. Determine whether the knowledge belongs in the root node or a domain subnode
-2. Call `mcp__org-roam__get_node_by_title` with the target node's title to get current content in one call
+2. Call `mcp__org-roam__get_node_by_title` with the target node's title to get current content
+   and its `file` field (the absolute path to the node's `.org` file) in one call
 3. If not found: create via `mcp__org-roam__create_node` with appropriate title and tags;
-   if creating a subnode, also update the root's `** Subnodes` section with a link to it
+   if creating a subnode, also edit the root's `** Subnodes` section (see step 6) to link it
 4. Add new findings under the appropriate section, avoiding duplicates
 5. **Before writing**: check whether any section now exceeds ~15 lines. If it does, split it
    into a subnode NOW rather than letting the root grow. Prefer many small focused nodes
    over one large node — a future session loads only what it needs.
-6. Update via `mcp__org-roam__update_node`
+6. Edit the node directly: use `Read` then `Edit` on the `file` path returned in step 2 — add
+   or amend just the lines that changed. Do NOT call `mcp__org-roam__update_node` for this; it
+   only supports whole-file overwrites, so every edit would cost a full round-trip of the node's
+   entire content in both directions. A targeted `Edit` does not. (A `PostToolUse` hook already
+   re-syncs org-roam's index after any edit under the roam directory — nothing else to do.)
 
 ### Split a section into a subnode
 1. Identify the section in the root node that has outgrown its place
 2. Create a new node titled `<project>/<domain>` tagged `["project", "knowledge", "<domain>"]`
-3. Move the section content into the subnode
+3. Move the section content into the subnode (`Read`/`Edit` the files directly, per above)
 4. Replace the section in the root with a brief summary and a link to the subnode
 5. Add the subnode link to the root's `** Subnodes` section
+
+## Promoting knowledge to CLAUDE.md
+
+Some things saved here turn out to be durable and worth every collaborator seeing — not just
+you. CLAUDE.md is checked into the repo and hand-maintained; project-brain is private and
+auto-written. Don't blur that line by editing CLAUDE.md yourself.
+
+If a gotcha, convention, or architectural note in this project's root/subnode has proven
+stable and would help a fresh contributor or agent, **suggest** promoting it: tell the user what
+you'd propose adding and to which file, and let them decide. Never edit CLAUDE.md on your own
+initiative as part of this skill's save flow.

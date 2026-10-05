@@ -7,8 +7,8 @@
       src = pkgs.fetchFromGitHub {
         owner = "anerisgreat";
         repo = "org-roam-mcp";
-        rev = "dd2e1f7dd040a57240e448016e3625a0de7fbff6";
-        sha256 = "1b3hsszzgcn57jfxnp8zghf8hl1v01kk445q40x8yqzrcvd7nf9v";
+        rev = "8a169a9ec3fec1305a0573a1fddb9fcae97bcc2a";
+        sha256 = "19d41p7rgpiqfdg11h585zw15mz9p7iml9f77zxllcbp4mrdamp6";
       };
       build-system = [pkgs.python3Packages.hatchling];
       dependencies = with pkgs.python3Packages; [
@@ -35,6 +35,14 @@
         When enabled, installs org-roam-mcp and registers it as a global
         MCP server in ~/.claude.json so Claude Code can search, create, and
         update notes in your org-roam knowledge base across sessions.
+
+        Also installs a global PostToolUse hook in ~/.claude/settings.json:
+        after Claude edits or creates a file under orgRoamDir directly (e.g.
+        via the project-brain skill), it runs org-roam-resync (bundled with
+        org-roam-mcp) to re-derive that file's hash/title/tags/links and
+        write them straight into org-roam's SQLite index, so backlinks/
+        tags/search stay current without a full org-roam-db-sync -- and
+        without requiring Emacs to be running at all.
       '';
     };
     options.azos.claude-memory.orgRoamDir = lib.mkOption {
@@ -78,6 +86,31 @@
         else
           ${pkgs.jq}/bin/jq -n --argjson entry "$MCP_ENTRY" \
             '{mcpServers: {"org-roam": $entry}}' > "$CLAUDE_JSON"
+        fi
+      '';
+
+      home.activation.configureOrgRoamEditHook = lib.hm.dag.entryAfter ["writeBoundary"] ''
+        SETTINGS_JSON="$HOME/.claude/settings.json"
+        HOOK_ENTRY=$(${pkgs.jq}/bin/jq -n \
+          --arg roamDir "${config.azos.claude-memory.orgRoamDir}" \
+          --arg dbPath "${config.azos.claude-memory.orgRoamDbPath}" \
+          --arg resync "${pkgs.org-roam-mcp}/bin/org-roam-resync" \
+          '{
+            matcher: "Edit|Write",
+            hooks: [{
+              type: "command",
+              command: ("jq -r .tool_input.file_path | { read -r f; case \"$f\" in " + $roamDir + "/*) ORG_ROAM_DIR=" + $roamDir + " ORG_ROAM_DB_PATH=" + $dbPath + " " + $resync + " \"$f\" >/dev/null 2>&1 || true ;; esac; }")
+            }]
+          }')
+
+        if [ -f "$SETTINGS_JSON" ]; then
+          tmp=$(mktemp)
+          ${pkgs.jq}/bin/jq --argjson entry "$HOOK_ENTRY" \
+            '.hooks.PostToolUse = ((.hooks.PostToolUse // []) | map(select(.matcher != $entry.matcher))) + [$entry]' \
+            "$SETTINGS_JSON" > "$tmp" && mv "$tmp" "$SETTINGS_JSON"
+        else
+          ${pkgs.jq}/bin/jq -n --argjson entry "$HOOK_ENTRY" \
+            '{hooks: {PostToolUse: [$entry]}}' > "$SETTINGS_JSON"
         fi
       '';
     };
