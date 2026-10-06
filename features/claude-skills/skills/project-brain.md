@@ -53,28 +53,41 @@ needing to follow links.
 
 ## Steps
 
+### Resolving a node's file (used by both Load and Save below)
+Never use `mcp__org-roam__get_node_by_title` or `mcp__org-roam__get_node` to read a node's
+content — both bundle the full file content into the MCP response, which is wasted work the
+moment you also need `Read` (required before any `Edit`) on that same file. Resolve the path
+instead, then read the file directly — one content fetch, not two:
+1. Call `mcp__org-roam__search_nodes` with the node's title (project name for the root node,
+   `<project>/<domain>` for a subnode — this is substring search, so a project name can match
+   several subnodes; results carry full titles, so just pick the entry whose `title` is an
+   exact match). This returns `{id, title, file, tags, aliases}` — no content.
+2. If no exact-title match: the node doesn't exist yet.
+3. If matched: `Read` the returned `file` path for the actual content. If you already `Read`
+   that file earlier this session, don't re-read it — use what's already in context.
+
 ### Load context (invoke at session start AND before planning any non-trivial feature or multi-step task)
 1. Get project name: basename of the current working directory (e.g. `azos`, not `azos knowledge`)
-2. Call `mcp__org-roam__get_node_by_title` with the project name — this returns full node content in a single call
-3. If `found: true`: incorporate the content into working context
-   - If the `** Subnodes` section contains links and the current task is domain-focused, extract the linked node IDs and call `mcp__org-roam__get_node` on the relevant ones (all in parallel if multiple)
-4. If `found: false`: note that no prior knowledge exists yet for this project
+2. Resolve and read the root node (see above). If it doesn't exist, note that no prior
+   knowledge exists yet for this project.
+3. If the `** Subnodes` section contains links and the current task is domain-focused, each
+   link's visible text is the subnode's title (`[[id:...][<project>/<domain>]]`) — resolve and
+   read those subnodes the same way (all in parallel if multiple). No need to follow the id.
 
 ### Save new knowledge (run after planning, research, or feature work — not just when explicitly asked)
 1. Determine whether the knowledge belongs in the root node or a domain subnode
-2. Call `mcp__org-roam__get_node_by_title` with the target node's title to get current content
-   and its `file` field (the absolute path to the node's `.org` file) in one call
-3. If not found: create via `mcp__org-roam__create_node` with appropriate title and tags;
+2. Resolve that node's file (see above)
+3. If it doesn't exist: create via `mcp__org-roam__create_node` with appropriate title and tags;
    if creating a subnode, also edit the root's `** Subnodes` section (see step 6) to link it
 4. Add new findings under the appropriate section, avoiding duplicates
 5. **Before writing**: check whether any section now exceeds ~15 lines. If it does, split it
    into a subnode NOW rather than letting the root grow. Prefer many small focused nodes
    over one large node — a future session loads only what it needs.
-6. Edit the node directly: use `Read` then `Edit` on the `file` path returned in step 2 — add
-   or amend just the lines that changed. Do NOT call `mcp__org-roam__update_node` for this; it
-   only supports whole-file overwrites, so every edit would cost a full round-trip of the node's
-   entire content in both directions. A targeted `Edit` does not. (A `PostToolUse` hook already
-   re-syncs org-roam's index after any edit under the roam directory — nothing else to do.)
+6. `Edit` the file directly — add or amend just the lines that changed. Do NOT call
+   `mcp__org-roam__update_node` for this; it only supports whole-file overwrites, so every edit
+   would cost a full round-trip of the node's entire content in both directions. A targeted
+   `Edit` does not. (A `PostToolUse` hook already re-syncs org-roam's index after any edit under
+   the roam directory — nothing else to do.)
 
 ### Split a section into a subnode
 1. Identify the section in the root node that has outgrown its place
