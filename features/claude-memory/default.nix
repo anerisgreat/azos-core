@@ -50,6 +50,11 @@
         skills read and write there constantly. Edit still only applies
         when the session's permission mode otherwise allows edits (e.g. not
         plan mode); this just removes the per-file prompt within that path.
+
+        Also pre-approves the org-roam MCP tools used in that same normal
+        flow: mcp__org-roam__search_nodes unconditionally (read-only), and
+        mcp__org-roam__create_node under the same gating as Edit above --
+        pre-approved, but still subject to the session's permission mode.
       '';
     };
     options.azos.claude-memory.orgRoamDir = lib.mkOption {
@@ -125,15 +130,21 @@
         SETTINGS_JSON="$HOME/.claude/settings.json"
         READ_RULE="Read(/${config.azos.claude-memory.orgRoamDir}/**)"
         EDIT_RULE="Edit(/${config.azos.claude-memory.orgRoamDir}/**)"
+        SEARCH_NODES_RULE="mcp__org-roam__search_nodes"
+        CREATE_NODE_RULE="mcp__org-roam__create_node"
 
         if [ -f "$SETTINGS_JSON" ]; then
           tmp=$(mktemp)
-          ${pkgs.jq}/bin/jq --arg read "$READ_RULE" --arg edit "$EDIT_RULE" \
-            '.permissions.allow = (((.permissions.allow // []) + [$read, $edit]) | unique)' \
+          ${pkgs.jq}/bin/jq \
+            --arg read "$READ_RULE" --arg edit "$EDIT_RULE" \
+            --arg searchNodes "$SEARCH_NODES_RULE" --arg createNode "$CREATE_NODE_RULE" \
+            '.permissions.allow = (((.permissions.allow // []) + [$read, $edit, $searchNodes, $createNode]) | unique)' \
             "$SETTINGS_JSON" > "$tmp" && mv "$tmp" "$SETTINGS_JSON"
         else
-          ${pkgs.jq}/bin/jq -n --arg read "$READ_RULE" --arg edit "$EDIT_RULE" \
-            '{permissions: {allow: [$read, $edit]}}' > "$SETTINGS_JSON"
+          ${pkgs.jq}/bin/jq -n \
+            --arg read "$READ_RULE" --arg edit "$EDIT_RULE" \
+            --arg searchNodes "$SEARCH_NODES_RULE" --arg createNode "$CREATE_NODE_RULE" \
+            '{permissions: {allow: [$read, $edit, $searchNodes, $createNode]}}' > "$SETTINGS_JSON"
         fi
       '';
     };
