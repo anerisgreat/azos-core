@@ -11,26 +11,30 @@ Invoke when the user asks to add, list, update, or complete project TODOs or tas
 - Completed items: `* DONE <description>`
 - When creating the subnode, also add a link to it in the root project node's `** Subnodes` section (if the root node exists)
 
+## Resolving the todos subnode
+Call `mcp__org-roam__search_nodes` with `<project>/todos` (substring search — pick the result
+whose `title` is an exact match). The result already carries `{id, title, file, tags, aliases}` —
+`Read` the returned `file` path directly. Never follow up with `mcp__org-roam__get_node` or
+`get_node_by_title`: both re-fetch the full content you already have the path for, and you need
+`Read` before any `Edit` regardless. If no exact-title match, the subnode doesn't exist yet.
+
 ## Steps
 
 ### Add a TODO
 1. Get project name: basename of the current working directory
-2. Search for the todos subnode via `mcp__org-roam__search_nodes` with `<project>/todos`
-3. If no subnode exists: create one via `mcp__org-roam__create_node` (title = `<project>/todos`, tags = `["project", "todo"]`); then search for the root project knowledge node and add a link to the subnode in its `** Subnodes` section
-4. Fetch current content via `mcp__org-roam__get_node`, append `* TODO <description>`, update via `mcp__org-roam__update_node`
+2. Resolve the todos subnode (see above)
+3. If no subnode exists: create one via `mcp__org-roam__create_node` (title = `<project>/todos`, tags = `["project", "todo"]`); then resolve the root project knowledge node and `Edit` its `** Subnodes` section to link the new subnode
+4. `Edit` the file to append `* TODO <description>`
 
 ### List TODOs
 1. Get project name from the current working directory basename
-2. Find the todos subnode via `mcp__org-roam__search_nodes` with `<project>/todos`
-3. Fetch full content via `mcp__org-roam__get_node`
-4. Display all headings prefixed with `* TODO`
+2. Resolve the todos subnode (see above) and `Read` it, unless already read earlier this session
+3. Display all headings prefixed with `* TODO`
 
 ### Mark a TODO done
-1. Find the todos subnode as above
-2. Fetch content, replace `* TODO <matching text>` with `* DONE <matching text>`
-3. Update via `mcp__org-roam__update_node`
+1. Resolve the todos subnode as above
+2. `Edit` the file, replacing `* TODO <matching text>` with `* DONE <matching text>`
 
 ### Remove a TODO
-1. Find the todos subnode as above
-2. Fetch content, remove the matching heading line
-3. Update via `mcp__org-roam__update_node`
+1. Resolve the todos subnode as above
+2. `Edit` the file, removing the matching heading line

@@ -43,6 +43,13 @@
         write them straight into org-roam's SQLite index, so backlinks/
         tags/search stay current without a full org-roam-db-sync -- and
         without requiring Emacs to be running at all.
+
+        Also adds global permission rules so Read and Edit are always
+        allowed under orgRoamDir, without per-call prompts, in every
+        project/session -- the project-brain/todo/workplate/work-history
+        skills read and write there constantly. Edit still only applies
+        when the session's permission mode otherwise allows edits (e.g. not
+        plan mode); this just removes the per-file prompt within that path.
       '';
     };
     options.azos.claude-memory.orgRoamDir = lib.mkOption {
@@ -111,6 +118,22 @@
         else
           ${pkgs.jq}/bin/jq -n --argjson entry "$HOOK_ENTRY" \
             '{hooks: {PostToolUse: [$entry]}}' > "$SETTINGS_JSON"
+        fi
+      '';
+
+      home.activation.configureOrgRoamPermissions = lib.hm.dag.entryAfter ["writeBoundary"] ''
+        SETTINGS_JSON="$HOME/.claude/settings.json"
+        READ_RULE="Read(/${config.azos.claude-memory.orgRoamDir}/**)"
+        EDIT_RULE="Edit(/${config.azos.claude-memory.orgRoamDir}/**)"
+
+        if [ -f "$SETTINGS_JSON" ]; then
+          tmp=$(mktemp)
+          ${pkgs.jq}/bin/jq --arg read "$READ_RULE" --arg edit "$EDIT_RULE" \
+            '.permissions.allow = (((.permissions.allow // []) + [$read, $edit]) | unique)' \
+            "$SETTINGS_JSON" > "$tmp" && mv "$tmp" "$SETTINGS_JSON"
+        else
+          ${pkgs.jq}/bin/jq -n --arg read "$READ_RULE" --arg edit "$EDIT_RULE" \
+            '{permissions: {allow: [$read, $edit]}}' > "$SETTINGS_JSON"
         fi
       '';
     };
