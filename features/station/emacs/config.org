@@ -92,11 +92,20 @@ mu index
                   (mu4e-drafts-folder . "/bgu/[Gmail]/Drafts")
                   (mu4e-trash-folder  . "/bgu/[Gmail]/Bin")
                   (mu4e-refile-folder . "/bgu/[Gmail]/All Mail")))))
-  (setq mu4e-bookmarks
-        '((:name "Inbox"  :query "maildir:/zakobar/INBOX OR maildir:/gmail/INBOX OR maildir:/bgu/INBOX" :key ?i)
-          (:name "Unread" :query "flag:unread AND NOT flag:trashed" :key ?u)
-          (:name "Today"  :query "date:today..now AND NOT flag:trashed" :key ?t)
-          (:name "Week"   :query "date:7d..now AND NOT flag:trashed" :key ?w)))
+  (let ((mu4e-trash-exclusions
+         (concat "AND NOT maildir:/gmail/[Gmail]/Trash"
+                 " AND NOT maildir:/gmail/[Gmail]/Spam"
+                 " AND NOT maildir:/gmail/[Gmail]/All\\ Mail"
+                 " AND NOT maildir:/bgu/[Gmail]/Bin"
+                 " AND NOT maildir:/bgu/[Gmail]/All\\ Mail"
+                 " AND NOT maildir:/zakobar/Trash"
+                 " AND NOT maildir:/zakobar/Spam"
+                 " AND NOT maildir:\"/zakobar/Deleted Messages\"")))
+    (setq mu4e-bookmarks
+          `((:name "Inbox"  :query "(maildir:/zakobar/INBOX OR maildir:/gmail/INBOX OR maildir:/bgu/INBOX) AND NOT flag:trashed" :key ?i)
+            (:name "Unread" :query ,(concat "flag:unread AND NOT flag:trashed " mu4e-trash-exclusions) :key ?u)
+            (:name "Today"  :query ,(concat "date:today..now AND NOT flag:trashed " mu4e-trash-exclusions) :key ?t)
+            (:name "Week"   :query ,(concat "date:7d..now AND NOT flag:trashed " mu4e-trash-exclusions) :key ?w))))
   (setq mu4e-maildir-shortcuts
         '((:maildir "/zakobar/Inbox" :key ?z)
           (:maildir "/gmail/Inbox"   :key ?g)
