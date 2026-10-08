@@ -778,10 +778,86 @@ logs notifications to the =*ednc-log*= buffer. =services.dunst.enable= is
 force-disabled in =exwm/default.nix= so the two don't fight over ownership
 of =org.freedesktop.Notifications=.
 
+EDNC's core only ships that log-buffer presentation function — no visual
+popup. =azos/ednc-popup--present= is added alongside it on
+=ednc-notification-presentation-functions= to show a stacked posframe toast
+per notification in the top-right corner, styled to match the minibuffer
+(=WhiteSmoke= background, =black= text) with a =LightBlue1= border (the same
+color used for the evil emacs-state tag). Popups auto-hide after
+=azos/ednc-popup/duration= seconds regardless of the sender's requested
+expiry, since most senders leave that as "let the server decide" and EDNC's
+own expiry timer then never fires, which would otherwise leave stale popups
+on screen forever; the =*ednc-log*= entry is untouched by this since hiding
+the popup is purely cosmetic, not a real dismissal.
+
 #+begin_src emacs-lisp
 (use-package ednc
   :config
   (ednc-mode)
+
+  (defconst azos/ednc-popup/width 40
+    "Character width of EDNC popup notifications.")
+  (defconst azos/ednc-popup/right-margin 420
+    "Pixel distance from the frame's right edge to a popup's left edge.")
+  (defconst azos/ednc-popup/top-margin 40
+    "Pixel distance from the frame's top edge to the first popup.")
+  (defconst azos/ednc-popup/gap 12
+    "Pixel gap between stacked popups.")
+  (defconst azos/ednc-popup/duration 5
+    "Seconds a popup stays visible before auto-hiding.")
+
+  (defvar azos/ednc-popup/stack nil
+    "Alist of (ID FRAME TIMER) for visible EDNC popups, newest first.")
+
+  (defun azos/ednc-popup--buffer-name (id)
+    (format " *ednc-popup-%d*" id))
+
+  (defun azos/ednc-popup--format (notification)
+    (let ((app (ednc-notification-app-name notification))
+          (summary (ednc-notification-summary notification))
+          (body (ednc-notification-body notification)))
+      (concat (format "%s: %s" app summary)
+              (and body (not (string-empty-p body)) (concat "\n" body)))))
+
+  (defun azos/ednc-popup--reflow ()
+    "Stack active popups top-to-bottom at the frame's right edge."
+    (let ((y azos/ednc-popup/top-margin))
+      (dolist (entry (reverse azos/ednc-popup/stack))
+        (let ((frame (cadr entry)))
+          (set-frame-position frame
+                               (- (frame-pixel-width) azos/ednc-popup/right-margin) y)
+          (setq y (+ y (frame-pixel-height frame) azos/ednc-popup/gap))))))
+
+  (defun azos/ednc-popup--remove (id)
+    "Hide and forget the popup for notification ID, if still visible."
+    (when-let* ((entry (assq id azos/ednc-popup/stack)))
+      (posframe-delete (azos/ednc-popup--buffer-name id))
+      (when-let* ((timer (caddr entry))) (cancel-timer timer))
+      (setq azos/ednc-popup/stack (assq-delete-all id azos/ednc-popup/stack))
+      (azos/ednc-popup--reflow)))
+
+  (defun azos/ednc-popup--present (old new)
+    "Presentation function wired into `ednc-notification-presentation-functions'."
+    (when old (azos/ednc-popup--remove (ednc-notification-id old)))
+    (when new
+      (let* ((id (ednc-notification-id new))
+             (frame (posframe-show (azos/ednc-popup--buffer-name id)
+                                    :string (azos/ednc-popup--format new)
+                                    :position (cons (- (frame-pixel-width)
+                                                        azos/ednc-popup/right-margin)
+                                                     azos/ednc-popup/top-margin)
+                                    :width azos/ednc-popup/width
+                                    :min-width azos/ednc-popup/width
+                                    :internal-border-width 3
+                                    :internal-border-color "LightBlue1"
+                                    :background-color "WhiteSmoke"
+                                    :foreground-color "black"))
+             (timer (run-at-time azos/ednc-popup/duration nil
+                                  #'azos/ednc-popup--remove id)))
+        (push (list id frame timer) azos/ednc-popup/stack)
+        (azos/ednc-popup--reflow))))
+
+  (add-hook 'ednc-notification-presentation-functions #'azos/ednc-popup--present)
   :bind
   (:map azos/global-minor-mode/open-keymap
         ("v" . (lambda () (interactive) (pop-to-buffer ednc-log-name)))))
