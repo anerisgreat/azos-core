@@ -17,7 +17,11 @@
       # daemon instead — see azos-core/features/exwm/emacs/config.org.
       services.dunst.enable = lib.mkForce false;
 
-      home.packages = with pkgs; [ffmpeg-full imv xkb-switch];
+      # libnotify's notify-send is the standard way for arbitrary scripts
+      # (not just Emacs itself) to post to the org.freedesktop.Notifications
+      # bus that EDNC serves -- without it nothing outside Emacs has a
+      # straightforward way to raise a desktop notification.
+      home.packages = with pkgs; [ffmpeg-full imv xkb-switch libnotify];
       xdg.mimeApps.defaultApplications = {"image/gif" = "imv.desktop";};
       services.udiskie = {
         enable = true;
