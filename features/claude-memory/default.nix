@@ -55,6 +55,15 @@
         flow: mcp__org-roam__search_nodes unconditionally (read-only), and
         mcp__org-roam__create_node under the same gating as Edit above --
         pre-approved, but still subject to the session's permission mode.
+
+        Also installs a global SessionStart hook: at the start of every
+        session, it looks up the org-roam node whose title exactly matches
+        the basename of the current working directory (the project-brain
+        root node for that project) and injects its full content into the
+        model's context via hookSpecificOutput.additionalContext. This
+        makes root-node knowledge available immediately without the model
+        needing to invoke the project-brain skill just to load it. Domain
+        subnodes are still loaded on demand via the skill.
       '';
     };
     options.azos.claude-memory.orgRoamDir = lib.mkOption {
@@ -79,7 +88,20 @@
       '';
     };
 
-    config = lib.mkIf config.azos.claude-memory.enable {
+    config = lib.mkIf config.azos.claude-memory.enable (let
+      sessionStartScript = pkgs.writeShellScript "project-brain-session-start" ''
+        roam_dir="${config.azos.claude-memory.orgRoamDir}"
+        project=$(basename "$PWD")
+        file=$(${pkgs.gnugrep}/bin/grep -rlFx "#+title: $project" "$roam_dir" 2>/dev/null | head -n1)
+        if [ -z "$file" ]; then
+          echo '{}'
+          exit 0
+        fi
+        content=$(cat "$file")
+        ${pkgs.jq}/bin/jq -n --arg ctx "$content" \
+          '{hookSpecificOutput: {hookEventName: "SessionStart", additionalContext: $ctx}}'
+      '';
+    in {
       home.packages = [pkgs.org-roam-mcp pkgs.jq];
 
       home.activation.configureMcpMemory = lib.hm.dag.entryAfter ["writeBoundary"] ''
@@ -126,6 +148,23 @@
         fi
       '';
 
+      home.activation.configureOrgRoamSessionStartHook = lib.hm.dag.entryAfter ["writeBoundary"] ''
+        SETTINGS_JSON="$HOME/.claude/settings.json"
+        HOOK_ENTRY=$(${pkgs.jq}/bin/jq -n \
+          --arg cmd "${sessionStartScript}" \
+          '{hooks: [{type: "command", command: $cmd}]}')
+
+        if [ -f "$SETTINGS_JSON" ]; then
+          tmp=$(mktemp)
+          ${pkgs.jq}/bin/jq --argjson entry "$HOOK_ENTRY" \
+            '.hooks.SessionStart = ((.hooks.SessionStart // []) | map(select((.hooks[0].command // "") | contains("project-brain-session-start") | not))) + [$entry]' \
+            "$SETTINGS_JSON" > "$tmp" && mv "$tmp" "$SETTINGS_JSON"
+        else
+          ${pkgs.jq}/bin/jq -n --argjson entry "$HOOK_ENTRY" \
+            '{hooks: {SessionStart: [$entry]}}' > "$SETTINGS_JSON"
+        fi
+      '';
+
       home.activation.configureOrgRoamPermissions = lib.hm.dag.entryAfter ["writeBoundary"] ''
         SETTINGS_JSON="$HOME/.claude/settings.json"
         READ_RULE="Read(/${config.azos.claude-memory.orgRoamDir}/**)"
@@ -147,6 +186,6 @@
             '{permissions: {allow: [$read, $edit, $searchNodes, $createNode]}}' > "$SETTINGS_JSON"
         fi
       '';
-    };
+    });
   };
 }

@@ -169,6 +169,14 @@ https://www.reddit.com/r/emacs/comments/kkk3ol/flycheck_emacs_setup_for_rust_com
     :config (add-hook 'flycheck-mode-hook #'flycheck-rust-setup))
 #+end_src
 
+** PCAP
+
+Browse pcap files via =tshark=.
+
+#+begin_src emacs-lisp
+(use-package pcap-mode)
+#+end_src
+
 ** Jupyter (ein)
 
 #+begin_src emacs-lisp

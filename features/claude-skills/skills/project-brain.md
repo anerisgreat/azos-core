@@ -1,11 +1,10 @@
-Persistent cross-session project memory backed by org-roam. TRIGGER on three conditions — (1) **session start**: always load prior context before doing any work; (2) **before planning or multi-step tasks**: retrieve what's already known so you don't re-derive it; (3) **after learning something non-obvious**: save it immediately so future sessions start informed. Stores architecture decisions, gotchas, key file locations, and conventions that are NOT derivable from reading the code, CLAUDE.md, or git history.
+Persistent cross-session project memory backed by org-roam. The current project's root node is already auto-loaded into context via a SessionStart hook — do not invoke this skill just to get that. TRIGGER on two conditions — (1) **before planning or multi-step tasks that need more than the root node**: load a domain subnode so you don't re-derive what's already known; (2) **after learning something non-obvious**: save it immediately so future sessions start informed. Stores architecture decisions, gotchas, key file locations, and conventions that are NOT derivable from reading the code, CLAUDE.md, or git history.
 
 ## When to use
 
 **Load** (read from org-roam):
-- At the start of every session
-- Before planning any non-trivial feature or multi-step task
-- When you need context you don't have — check org-roam before asking the user
+- Before planning a domain-focused feature or multi-step task, when the root node's `** Subnodes` links point to something relevant
+- When you need context you don't have that isn't in the already-loaded root node — check org-roam before asking the user
 
 **Save** (write to org-roam) — do this proactively, without waiting to be asked:
 - After any planning or research session where you learned how something works
@@ -66,7 +65,11 @@ instead, then read the file directly — one content fetch, not two:
 3. If matched: `Read` the returned `file` path for the actual content. If you already `Read`
    that file earlier this session, don't re-read it — use what's already in context.
 
-### Load context (invoke at session start AND before planning any non-trivial feature or multi-step task)
+### Load context (invoke before planning a domain-focused feature or multi-step task)
+The root node itself is already in context from the SessionStart hook — skip straight to
+subnode loading below. Only fall back to resolving the root node yourself (steps 1-2) if
+the hook didn't fire (e.g. no root node existed yet when the session started) or you need
+to confirm it's current.
 1. Get project name: basename of the current working directory (e.g. `azos`, not `azos knowledge`)
 2. Resolve and read the root node (see above). If it doesn't exist, note that no prior
    knowledge exists yet for this project.
