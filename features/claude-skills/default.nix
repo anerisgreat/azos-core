@@ -51,14 +51,17 @@
         The current project's org-roam root node is already injected into context
         via a SessionStart hook -- no need to invoke anything to get it.
 
+        To load more (a relevant subnode linked from the root's `** Subnodes`
+        section, or another project's root/subnodes): call `search_nodes` with the
+        exact title (`<project>` or `<project>/<domain>`), then `Read` the returned
+        file directly. Never use `get_node`/`get_node_by_title` for this -- both
+        bundle the full file content into the response, duplicating the `Read`
+        you'd need anyway before any `Edit` on that file.
+
         When you discover something significant about a project that is not already
         in org-roam (architecture decisions, non-obvious conventions, key file
         locations, unexpected constraints, gotchas), save it using the
         `project-brain` skill without waiting to be asked.
-
-        If a task needs deeper context than the root node provides (a domain
-        subnode, or context for a different project), use the `project-brain`
-        skill to search org-roam before asking the user.
       '';
 
       home.file =

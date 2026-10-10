@@ -1,10 +1,6 @@
-Persistent cross-session project memory backed by org-roam. The current project's root node is already auto-loaded into context via a SessionStart hook — do not invoke this skill just to get that. TRIGGER on two conditions — (1) **before planning or multi-step tasks that need more than the root node**: load a domain subnode so you don't re-derive what's already known; (2) **after learning something non-obvious**: save it immediately so future sessions start informed. Stores architecture decisions, gotchas, key file locations, and conventions that are NOT derivable from reading the code, CLAUDE.md, or git history.
+Persistent cross-session project memory backed by org-roam — the write side. The root node is already auto-loaded into context via a SessionStart hook, and CLAUDE.md covers loading subnodes directly — do not invoke this skill just to read. TRIGGER after learning something non-obvious: save it immediately so future sessions start informed. Stores architecture decisions, gotchas, key file locations, and conventions that are NOT derivable from reading the code, CLAUDE.md, or git history.
 
 ## When to use
-
-**Load** (read from org-roam):
-- Before planning a domain-focused feature or multi-step task, when the root node's `** Subnodes` links point to something relevant
-- When you need context you don't have that isn't in the already-loaded root node — check org-roam before asking the user
 
 **Save** (write to org-roam) — do this proactively, without waiting to be asked:
 - After any planning or research session where you learned how something works
@@ -52,30 +48,10 @@ needing to follow links.
 
 ## Steps
 
-### Resolving a node's file (used by both Load and Save below)
-Never use `mcp__org-roam__get_node_by_title` or `mcp__org-roam__get_node` to read a node's
-content — both bundle the full file content into the MCP response, which is wasted work the
-moment you also need `Read` (required before any `Edit`) on that same file. Resolve the path
-instead, then read the file directly — one content fetch, not two:
-1. Call `mcp__org-roam__search_nodes` with the node's title (project name for the root node,
-   `<project>/<domain>` for a subnode — this is substring search, so a project name can match
-   several subnodes; results carry full titles, so just pick the entry whose `title` is an
-   exact match). This returns `{id, title, file, tags, aliases}` — no content.
-2. If no exact-title match: the node doesn't exist yet.
-3. If matched: `Read` the returned `file` path for the actual content. If you already `Read`
-   that file earlier this session, don't re-read it — use what's already in context.
-
-### Load context (invoke before planning a domain-focused feature or multi-step task)
-The root node itself is already in context from the SessionStart hook — skip straight to
-subnode loading below. Only fall back to resolving the root node yourself (steps 1-2) if
-the hook didn't fire (e.g. no root node existed yet when the session started) or you need
-to confirm it's current.
-1. Get project name: basename of the current working directory (e.g. `azos`, not `azos knowledge`)
-2. Resolve and read the root node (see above). If it doesn't exist, note that no prior
-   knowledge exists yet for this project.
-3. If the `** Subnodes` section contains links and the current task is domain-focused, each
-   link's visible text is the subnode's title (`[[id:...][<project>/<domain>]]`) — resolve and
-   read those subnodes the same way (all in parallel if multiple). No need to follow the id.
+Resolving a node's file: `search_nodes` on its exact title (project name for the root node,
+`<project>/<domain>` for a subnode), then `Read` the returned `file` path directly. Never use
+`get_node`/`get_node_by_title` — both bundle full content into the response, duplicating the
+`Read` you'd need anyway before any `Edit`. If no exact-title match, the node doesn't exist yet.
 
 ### Save new knowledge (run after planning, research, or feature work — not just when explicitly asked)
 1. Determine whether the knowledge belongs in the root node or a domain subnode
