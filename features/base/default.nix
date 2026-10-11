@@ -40,6 +40,7 @@
         zip
         cabata
         nix-search-cli
+        ncdu
       ];
     };
   };
