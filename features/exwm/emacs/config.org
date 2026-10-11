@@ -356,7 +356,7 @@ confirms and pastes the result back.
 ** Network (ENWC)
 
 Keyboard-driven WiFi management via NetworkManager's D-Bus API, in place of
-=nmtui=. =M-o w= opens the ENWC buffer: =s= scans, =RET= connects to the
+=nmtui=. =M-o W= opens the ENWC buffer: =s= scans, =RET= connects to the
 network at point, =d= disconnects.
 
 #+begin_src emacs-lisp
@@ -367,7 +367,7 @@ network at point, =d= disconnects.
   (setq enwc-default-backend 'nm)
   :bind
   (:map azos/global-minor-mode/open-keymap
-        ("w" . enwc)))
+        ("W" . enwc)))
 #+end_src
 
 ** Media keys
@@ -463,11 +463,9 @@ new process, should it be displayed in a new buffer/tab.
                     azos/exwm/startproc-regex-buffname-list
                      )))))
     (if entry
-        (let ((rn (nth 0 entry)) (tn (nth 1 entry)) (buff (current-buffer)))
-            ;; Too much complication for renaming
-            ;; (if requested-name (rename-buffer requested-name))
+        (let ((tab-name (nth 0 entry)) (buff (current-buffer)))
             (progn
-                (if tn (tab-bar-switch-to-tab tn))
+                (if tab-name (tab-bar-switch-to-tab tab-name))
                 (switch-to-buffer buff)
                 )))))
 
@@ -493,6 +491,24 @@ new process, should it be displayed in a new buffer/tab.
                              new-entry)
                 (apply 'start-process name nil proc
                         args))))))
+#+end_src
+
+** WhatsApp
+
+=M-o w= opens WhatsApp (zapzap) in its own dedicated "whatsapp" tab,
+launching it if it isn't running yet and just switching to its window
+otherwise — same "singleton tab" idea as mail/elfeed, via
+=azos/exwm/start-proc-dedicated= since zapzap is an external X window
+rather than an Emacs major mode.
+
+#+begin_src emacs-lisp
+(defun azos/whatsapp/open ()
+  "Open WhatsApp (zapzap) in its dedicated \"whatsapp\" tab, launching it if necessary."
+  (interactive)
+  (azos/exwm/start-proc-dedicated
+   "zapzap" "whatsapp" "\\`ZapZap\\(<[0-9]+>\\)?\\'" "zapzap"))
+
+(define-key azos/global-minor-mode/open-keymap (kbd "w") #'azos/whatsapp/open)
 #+end_src
 
 ** Tab bar addons
