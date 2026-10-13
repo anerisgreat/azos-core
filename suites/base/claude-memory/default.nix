@@ -19,7 +19,7 @@
       ];
     };
 
-  config.flake.modules.homeManager.claude-memory = {
+  config.flake.modules.homeManager.base = {
     lib,
     config,
     pkgs,

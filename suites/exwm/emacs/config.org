@@ -511,6 +511,23 @@ rather than an Emacs major mode.
 (define-key azos/global-minor-mode/open-keymap (kbd "w") #'azos/whatsapp/open)
 #+end_src
 
+** Spotify
+
+=M-o S= opens Spotify in its own dedicated "spotify" tab, launching it
+if it isn't running yet and just switching to its window otherwise —
+same "singleton tab" idea as WhatsApp above, via
+=azos/exwm/start-proc-dedicated=.
+
+#+begin_src emacs-lisp
+(defun azos/spotify/open ()
+  "Open Spotify in its dedicated \"spotify\" tab, launching it if necessary."
+  (interactive)
+  (azos/exwm/start-proc-dedicated
+   "spotify" "spotify" "\\`Spotify\\(<[0-9]+>\\)?\\'" "spotify"))
+
+(define-key azos/global-minor-mode/open-keymap (kbd "S") #'azos/spotify/open)
+#+end_src
+
 ** Tab bar addons
 *** Volume
 

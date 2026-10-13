@@ -1,5 +1,5 @@
 {...}: {
-  config.flake.modules.homeManager.claude-skills = {
+  config.flake.modules.homeManager.base = {
     lib,
     config,
     ...

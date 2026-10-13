@@ -193,7 +193,7 @@ https://medium.com/emacs/using-elfeed-to-view-videos-6dfc798e51e6
     :config
         (evil-collection-elfeed-setup)
 
-        ;; `global-visual-line-mode' (azos-core/features/base/emacs/config.org)
+        ;; `global-visual-line-mode' (azos-core/suites/base/emacs/config.org)
         ;; overrides elfeed-search-mode's own `truncate-lines' setting, so
         ;; every entry line soft-wraps in anything less than a full-width
         ;; window. Elfeed already wants truncated, not wrapped, lines here.

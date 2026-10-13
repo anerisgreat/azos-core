@@ -16,7 +16,7 @@
       imports = [
         ./_lib/modules.nix
         ./overlays/default.nix
-        (inputs.import-tree ./features)
+        (inputs.import-tree ./suites)
         {_module.args.azosCoreInputs = inputs;}
       ];
 
@@ -24,7 +24,7 @@
         imports = [
           ./_lib/modules.nix
           ./overlays/default.nix
-          (inputs.import-tree ./features)
+          (inputs.import-tree ./suites)
           {_module.args.azosCoreInputs = inputs;}
         ];
       };
