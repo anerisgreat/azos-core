@@ -1,15 +1,15 @@
 {...}: {
-  config.flake.modules.homeManager.station = {
+  config.flake.modules.homeManager.desktop = {
     lib,
     config,
     pkgs,
     ...
   }: {
-    options.azos.suites.station.enable = lib.mkOption {
+    options.azos.suites.desktop.enable = lib.mkOption {
       default = false;
       type = lib.types.bool;
     };
-    config = lib.mkIf config.azos.suites.station.enable {
+    config = lib.mkIf config.azos.suites.desktop.enable {
       azos.suites.base.enable = lib.mkDefault true;
 
       home.keyboard = {
@@ -110,7 +110,6 @@
         mpv
         upower
         pass
-        reaper
         exfatprogs
         e2fsprogs
       ];

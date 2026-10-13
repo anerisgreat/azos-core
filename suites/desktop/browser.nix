@@ -1,5 +1,5 @@
 {...}: {
-  config.flake.modules.homeManager.station = {
+  config.flake.modules.homeManager.desktop = {
     lib,
     config,
     pkgs,
@@ -9,7 +9,7 @@
       default = true;
       type = lib.types.bool;
     };
-    config = lib.mkIf (config.azos.suites.station.enable && config.azos.browser.enable) {
+    config = lib.mkIf (config.azos.suites.desktop.enable && config.azos.browser.enable) {
       home.packages = with pkgs; [qutebrowser];
       programs.chromium = {
         enable = true;

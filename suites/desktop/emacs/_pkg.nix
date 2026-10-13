@@ -4,7 +4,7 @@
   pkgs,
 }:
 orgTrivialBuild {
-  pname = "azos-emacs-station";
+  pname = "azos-emacs-desktop";
   version = "0.1.6";
   src = ./config.org;
   packageRequires = with epkgs; [

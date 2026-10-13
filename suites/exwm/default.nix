@@ -11,7 +11,7 @@
     };
     config = lib.mkIf config.azos.suites.exwm.enable {
       azos.suites.base.enable = lib.mkDefault true;
-      azos.suites.station.enable = lib.mkDefault true;
+      azos.suites.desktop.enable = lib.mkDefault true;
 
       # EDNC (Emacs Desktop Notification Center) runs as the notification
       # daemon instead — see azos-core/suites/exwm/emacs/config.org.

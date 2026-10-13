@@ -5,7 +5,6 @@
 ** Require
 
 #+begin_src emacs-lisp
-(require 'azos-emacs-station)
 (require 'azos-emacs-base)
 #+end_src
 
