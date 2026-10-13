@@ -5,6 +5,7 @@
 ** Require
 
 #+begin_src emacs-lisp
+(require 'azos-emacs-desktop)
 (require 'azos-emacs-base)
 #+end_src
 

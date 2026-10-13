@@ -9,6 +9,7 @@ orgTrivialBuild {
   src = ./config.org;
   packageRequires = with epkgs; [
     pkgs.azos-emacs-base
+    pkgs.azos-emacs-desktop
 
     exwm
     exwm-edit
