@@ -88,12 +88,17 @@
         model's context via hookSpecificOutput.additionalContext. This
         makes root-node knowledge available immediately without the model
         needing to invoke the project-brain skill just to load it. Domain
-        subnodes are still loaded on demand via the skill.
+        subnodes are still loaded on demand via the skill. Runs unconditionally
+        regardless of AZOS_AGENT_SHELL_SESSION (see
+        azos.agent-memory.backends.agent-shell below) -- that backend has no
+        session-start context-injection mechanism of its own yet, so there's
+        nothing to double up with here.
 
-        Both hooks no-op when AZOS_AGENT_SHELL_SESSION is set in their
-        environment -- see azos.agent-memory.backends.agent-shell, which sets
-        that variable on Claude sessions it launches via agent-shell, so the
-        two backends never both act on the same session.
+        The PostToolUse resync hook above, specifically, no-ops when
+        AZOS_AGENT_SHELL_SESSION is set in its environment -- see
+        azos.agent-memory.backends.agent-shell, which sets that variable on
+        Claude sessions it launches via agent-shell, so the resync doesn't
+        run twice for the same edit.
       '';
     };
 
@@ -118,9 +123,13 @@
         Also appends AZOS_AGENT_SHELL_SESSION=1 to
         agent-shell-anthropic-claude-environment, so that when agent-shell
         launches Claude specifically, azos.agent-memory.backends.claude's
-        own hooks (which read the exact same ~/.claude/settings.json
-        claude-agent-acp merges into that session) see the marker and
-        no-op instead of double-acting alongside this backend.
+        PostToolUse resync hook (which reads the exact same
+        ~/.claude/settings.json claude-agent-acp merges into that session)
+        sees the marker and no-ops instead of double-acting alongside this
+        backend's file-write subscription. Session-start context injection
+        has no equivalent here yet, so the claude backend's SessionStart
+        hook is intentionally left unguarded -- it's still the only thing
+        providing that for a Claude-via-agent-shell session.
       '';
     };
 
@@ -131,10 +140,6 @@
 
       (lib.mkIf cfg.backends.claude.enable (let
         sessionStartScript = pkgs.writeShellScript "project-brain-session-start" ''
-          if [ -n "$AZOS_AGENT_SHELL_SESSION" ]; then
-            echo '{}'
-            exit 0
-          fi
           roam_dir="${cfg.orgRoamDir}"
           project=$(basename "$PWD")
           file=$(${pkgs.gnugrep}/bin/grep -rlFx "#+title: $project" "$roam_dir" 2>/dev/null | head -n1)
