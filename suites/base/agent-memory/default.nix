@@ -115,10 +115,15 @@
         Drops ~/.emacs.d/extra/azos-agent-memory.el (auto-loaded by the
         load-dir setup in suites/base/emacs): registers org-roam-mcp in
         agent-shell-mcp-servers (applies to every session regardless of
-        backend), and subscribes to agent-shell's `file-write` event on
-        every agent-shell-mode buffer to run org-roam-resync when a file
-        under orgRoamDir is written -- the agent-shell-level equivalent of
-        the Claude-specific PostToolUse hook above.
+        backend), and subscribes to agent-shell's `tool-call-update` event
+        on every agent-shell-mode buffer, filtered to completed edit tool
+        calls, to run org-roam-resync when a file under orgRoamDir is
+        written -- the agent-shell-level equivalent of the Claude-specific
+        PostToolUse hook above. (Not `file-write': confirmed live that
+        Claude's native Write/Edit tools never emit it, since they write
+        directly via the SDK rather than through agent-shell's client-side
+        filesystem round-trip -- tool-call-update is the signal that
+        actually fires regardless of backend.)
 
         Also appends AZOS_AGENT_SHELL_SESSION=1 to
         agent-shell-anthropic-claude-environment, so that when agent-shell
@@ -126,10 +131,10 @@
         PostToolUse resync hook (which reads the exact same
         ~/.claude/settings.json claude-agent-acp merges into that session)
         sees the marker and no-ops instead of double-acting alongside this
-        backend's file-write subscription. Session-start context injection
-        has no equivalent here yet, so the claude backend's SessionStart
-        hook is intentionally left unguarded -- it's still the only thing
-        providing that for a Claude-via-agent-shell session.
+        backend's tool-call-update subscription. Session-start context
+        injection has no equivalent here yet, so the claude backend's
+        SessionStart hook is intentionally left unguarded -- it's still the
+        only thing providing that for a Claude-via-agent-shell session.
       '';
     };
 
@@ -255,18 +260,36 @@
                            (env . (((name . "ORG_ROAM_DIR") (value . "${cfg.orgRoamDir}"))
                                    ((name . "ORG_ROAM_DB_PATH") (value . "${cfg.orgRoamDbPath}"))))))
 
-            (defun azos/agent-shell-memory--on-file-write (event)
-              "Resync org-roam's index after agent-shell reports a file write under the roam dir."
-              (let ((path (map-elt (map-elt event :data) :path)))
-                (when (and path (string-prefix-p "${cfg.orgRoamDir}/" path))
-                  (call-process "${pkgs.org-roam-mcp}/bin/org-roam-resync" nil 0 nil path))))
+            ;; `file-write' (fs/write_text_file) only fires for agents that
+            ;; write through agent-shell's own client-side filesystem
+            ;; capability. Claude's native Write/Edit tools write directly
+            ;; via the SDK and never go through that round-trip -- confirmed
+            ;; live: editing a file via Claude's Write tool produced zero
+            ;; `file-write' events, only repeated `tool-call-update' events
+            ;; (pending -> pending-with-diff -> completed). So `tool-call-update'
+            ;; is the actually-reliable, backend-agnostic signal: filter to
+            ;; :kind "edit" and :status "completed" (the intermediate pending/
+            ;; diff updates fire multiple times per write; only act once) and
+            ;; read the touched path(s) from :locations, whose entries are
+            ;; raw ACP-JSON alists (plain `path' key, not agent-shell's own
+            ;; `:path'-style normalized keys).
+            (defun azos/agent-shell-memory--on-tool-call-update (event)
+              "Resync org-roam's index after a completed edit tool call touches a file under the roam dir."
+              (let* ((data (map-elt event :data))
+                     (tool-call (map-elt data :tool-call)))
+                (when (and (equal (map-elt tool-call :kind) "edit")
+                           (equal (map-elt tool-call :status) "completed"))
+                  (dolist (location (append (map-elt tool-call :locations) nil))
+                    (let ((path (map-elt location 'path)))
+                      (when (and path (string-prefix-p "${cfg.orgRoamDir}/" path))
+                        (call-process "${pkgs.org-roam-mcp}/bin/org-roam-resync" nil 0 nil path)))))))
 
             (add-hook 'agent-shell-mode-hook
                       (lambda ()
                         (agent-shell-subscribe-to
                          :shell-buffer (current-buffer)
-                         :event 'file-write
-                         :on-event #'azos/agent-shell-memory--on-file-write))))
+                         :event 'tool-call-update
+                         :on-event #'azos/agent-shell-memory--on-tool-call-update))))
 
           (with-eval-after-load 'agent-shell-anthropic
             (add-to-list 'agent-shell-anthropic-claude-environment "AZOS_AGENT_SHELL_SESSION=1"))
