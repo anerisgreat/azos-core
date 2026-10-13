@@ -1,6 +1,10 @@
 {azosCoreInputs, ...}: {
+  # Built against our own emacs package set rather than taking the input's
+  # packages.default: that one comes from evil-hl-line's own pinned nixpkgs, so
+  # it propagates an evil byte-compiled by a different Emacs version, which
+  # shadows ours on the load-path and breaks evil under an Emacs major bump.
   config.flake.overlayPkgs.evil-hl-line = pkgs:
-    azosCoreInputs.evil-hl-line.packages.${pkgs.stdenv.hostPlatform.system}.default;
+    azosCoreInputs.evil-hl-line.lib.mkEvilHlLine pkgs.emacs.pkgs;
 
   config.flake.overlayPkgs.azos-emacs-orgTrivialBuild = pkgs: let
     epkgs = pkgs.emacs.pkgs;
