@@ -1,0 +1,30 @@
+#+title: Aner's Emacs Chess Configuration
+#+property: header-args :results silent
+
+* Base setup
+** Require
+
+#+begin_src emacs-lisp
+(require 'azos-emacs-base)
+#+end_src
+
+* Lichess
+
+#+begin_src emacs-lisp
+(use-package lichess
+  :demand t
+  :init
+  (defun azos/chess/open ()
+    "Open lichess in its dedicated \"chess\" tab."
+    (interactive)
+    (azos/tab-bar/open-singleton-tab "chess" #'lichess))
+  :bind
+  (:map azos/global-minor-mode/open-keymap
+        ("k" . azos/chess/open)))
+#+end_src
+
+* Provide
+
+#+begin_src emacs-lisp
+(provide 'azos-emacs-chess)
+#+end_src
