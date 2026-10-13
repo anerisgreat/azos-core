@@ -4,7 +4,7 @@
     config,
     ...
   }: {
-    options.azos.claude-skills.enable = lib.mkOption {
+    options.azos.agent-skills.backends.claude.enable = lib.mkOption {
       default = false;
       example = true;
       type = lib.types.bool;
@@ -14,6 +14,12 @@
         Skills in azos.claude.globalSkills are deployed as markdown files to
         ~/.claude/commands/. Sections in azos.claude.globalMdSections are merged
         into ~/.claude/CLAUDE.md. Both options are extensible from any module.
+
+        Claude is currently the only skills backend -- no other ACP backend
+        (nor agent-shell itself) has a uniform equivalent to Claude Code's
+        slash-command/CLAUDE.md deployment, so there's nothing to add this
+        attrset's sibling for yet. Named as a backend anyway, for when/if
+        that changes.
       '';
     };
 
@@ -37,7 +43,7 @@
       '';
     };
 
-    config = lib.mkIf config.azos.claude-skills.enable {
+    config = lib.mkIf config.azos.agent-skills.backends.claude.enable {
       azos.claude.globalSkills = {
         todo = ./skills/todo.md;
         project-brain = ./skills/project-brain.md;

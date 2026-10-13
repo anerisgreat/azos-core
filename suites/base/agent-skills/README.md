@@ -1,6 +1,9 @@
-# claude-skills
+# agent-skills
 
 Deploys Claude Code global skills and standing behavioral instructions via home-manager.
+Claude is currently the only skills backend (`azos.agent-skills.backends.claude.enable`)
+-- no other ACP backend, nor agent-shell itself, has a uniform equivalent to slash
+commands/CLAUDE.md yet.
 
 Enabled automatically when `azos.claude.enable = true`.
 

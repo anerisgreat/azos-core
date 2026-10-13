@@ -12,6 +12,12 @@
       azos.emacs.enabledSuites = ["azos-emacs-editor"];
       azos.python.pkgs = with config.azos.python.pythonpkg.pkgs; [graphviz pygments];
 
+      # agent-shell is installed by this package (azos-emacs-editor, see
+      # _pkg.nix) -- bundle its memory backend the same way azos.claude.enable
+      # bundles the claude backend, so there's nothing extra to remember to
+      # turn on.
+      azos.agent-memory.backends.agent-shell.enable = lib.mkDefault true;
+
       azos.claude.globalMdSections.agent-shell-math = ''
         # Inline LaTeX Math Notation
 
