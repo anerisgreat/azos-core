@@ -12,6 +12,14 @@
       rev = "52780669af0ade136f84d73f21b4dbb7ab655416";
       sha256 = "sha256-SMt7hLCzerqzTJDqC5ztFqHRgxei/pUBU8NjoCVDQew=";
     };
+    # Upstream kills every remembered *Packet ...* buffer by name on reload and
+    # on close; once one was closed by hand, kill-buffer errors and wedges the
+    # pcap buffer (empty after reload, unkillable). Only kill live ones.
+    postPatch = ''
+      substituteInPlace pcap-mode.el --replace-fail \
+        "(mapc 'kill-buffer pcap-mode--pcap-packet-cleanup-list)" \
+        "(mapc (lambda (b) (when (get-buffer b) (kill-buffer b))) pcap-mode--pcap-packet-cleanup-list)"
+    '';
   };
 in
   orgTrivialBuild {

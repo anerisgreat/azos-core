@@ -177,6 +177,217 @@ Browse pcap files via =tshark=.
 (use-package pcap-mode)
 #+end_src
 
+*** Filter completion and validation
+
+=pcap-mode='s filter prompt is a bare =read-from-minibuffer=. Swap in a prompt
+that completes Wireshark field/protocol names (from =tshark -G fields=, loaded
+once and cached), annotates them with their description, prefills =-Y ""= when
+no filter is set, and checks the =-Y= expression with =dftest= before applying
+it — re-prompting with the error instead of reloading into an empty buffer.
+
+Completion pops up via company as you type; =TAB= also triggers it.
+
+#+begin_src emacs-lisp
+(defvar azos/pcap-fields nil
+  "Hash table of Wireshark field/protocol name -> description, or nil if unloaded.")
+
+(defun azos/pcap-fields ()
+  "Return `azos/pcap-fields', loading it from `tshark -G fields' on first use."
+  (or azos/pcap-fields
+      (let ((table (make-hash-table :test #'equal :size 300000)))
+        (dolist (line (process-lines pcap-mode-tshark-executable "-G" "fields"))
+          ;; P\tDescription\tabbrev  /  F\tDescription\tabbrev\tFT_TYPE\t...
+          (let ((cols (split-string line "\t")))
+            (when (and (nth 2 cols) (member (car cols) '("P" "F")))
+              (puthash (nth 2 cols)
+                       (if (equal (car cols) "P")
+                           (format "%s (protocol)" (nth 1 cols))
+                         (format "%s (%s)" (nth 1 cols)
+                                 (downcase (string-remove-prefix "FT_" (or (nth 3 cols) "")))))
+                       table))))
+        (setq azos/pcap-fields table))))
+
+(defun azos/pcap-field-capf ()
+  "Complete Wireshark field names at point."
+  (let ((end (point))
+        (start (save-excursion (skip-chars-backward "A-Za-z0-9_.-") (point))))
+    (when (< start end)
+      (list start end (azos/pcap-fields)
+            :exclusive 'no
+            :annotation-function
+            (lambda (field)
+              (let ((desc (gethash field (azos/pcap-fields))))
+                (and desc (concat "  " desc))))))))
+
+(defun azos/pcap-filter-error (filter)
+  "Return dftest's error for the -Y expression in FILTER, or nil if it's valid."
+  (let* ((args (ignore-errors (split-string-shell-command filter)))
+         (expr (cadr (member "-Y" args)))
+         (dftest (expand-file-name "dftest" (file-name-directory pcap-mode-tshark-executable))))
+    (when (and expr (not (string-empty-p expr)) (file-executable-p dftest))
+      (with-temp-buffer
+        (unless (zerop (call-process dftest nil t nil expr))
+          (string-trim (buffer-substring (point-min)
+                                         (progn (goto-char (point-min))
+                                                (line-end-position)))))))))
+
+(defun azos/pcap-read-filter ()
+  "Read a tshark filter with field completion, re-prompting until it's valid."
+  (azos/pcap-fields)
+  (let* ((current pcap-mode-tshark-filter)
+         (input (if (string-empty-p current) '("-Y \"\"" . 5) current))
+         (prompt "TShark Filter: ")
+         filter err)
+    (while (progn
+             (setq filter
+                   (minibuffer-with-setup-hook
+                       (lambda ()
+                         (add-hook 'completion-at-point-functions #'azos/pcap-field-capf nil t)
+                         (use-local-map (make-composed-keymap
+                                         (define-keymap "TAB" #'completion-at-point)
+                                         (current-local-map)))
+                         (company-mode 1))
+                     (read-from-minibuffer prompt input nil nil
+                                           '(pcap-mode--tshark-filter-history . 1))))
+             (setq err (azos/pcap-filter-error filter)))
+      (setq input (cons filter (1+ (length filter)))
+            prompt (format "TShark Filter [%s]: " err)))
+    filter))
+
+(advice-add 'pcap-mode-set-tshark-filter :around
+            (lambda (orig filter-value)
+              (interactive (list (azos/pcap-read-filter)))
+              (funcall orig filter-value))
+            '((name . azos/pcap-completing-filter)))
+#+end_src
+
+*** Field hex view
+
+=C-RET x= on a packet line prompts for one of the fields (or protocols) present
+in that packet — completed, annotated with its value and description, defaulting
+to =tcp.payload= — and shows just that field's bytes as a hex + ASCII dump.
+
+Uses =tshark -T json -x=, which gives every field's raw bytes and frame offset.
+Bitmask fields (flags etc.) carry the masked value there, so those are sliced out
+of the frame bytes instead.
+
+#+begin_src emacs-lisp
+(defun azos/pcap--json-object-p (v)
+  "Non-nil if V is a parsed JSON object (an alist with symbol keys)."
+  (and (consp v) (consp (car v)) (symbolp (caar v))))
+
+(defun azos/pcap--packet-fields (file packet)
+  "Return (FRAME-HEX . FIELDS) for PACKET number in FILE.
+FIELDS is an ordered list of (NAME SHOW ENTRIES), each entry being a tshark
+raw list (HEX POS LEN BITMASK ...)."
+  (let* ((json (with-temp-buffer
+                 (unless (zerop (call-process pcap-mode-tshark-executable nil '(t nil) nil
+                                              "-r" file "-T" "json" "-x" "--no-duplicate-keys"
+                                              "-Y" (format "frame.number==%s" packet)
+                                              ;; -c counts packets read, so this stops right after it
+                                              "-c" packet))
+                   (error "tshark failed on packet %s" packet))
+                 (goto-char (point-min))
+                 (json-parse-buffer :object-type 'alist :array-type 'list)))
+         (layers (alist-get 'layers (alist-get '_source (car json)))))
+    (unless layers (error "Packet %s not found" packet))
+    (cons (car (alist-get 'frame_raw layers))
+          (nreverse (azos/pcap--collect-raw layers nil)))))
+
+(defun azos/pcap--collect-raw (obj fields)
+  "Push (NAME SHOW ENTRIES) for every *_raw key under JSON OBJ onto FIELDS.
+Returns the new FIELDS (most recent first); repeated names are merged."
+  (dolist (kv obj fields)
+    (let ((key (symbol-name (car kv))) (v (cdr kv)))
+      (cond
+       ((azos/pcap--json-object-p v)
+        (setq fields (azos/pcap--collect-raw v fields)))
+       ((and (string-suffix-p "_raw" key) (consp v))
+        (let* ((name (string-remove-suffix "_raw" key))
+               (entries (if (stringp (car v)) (list v) v))
+               (existing (assoc name fields)))
+          (if existing
+              (setcar (cddr existing) (append (nth 2 existing) entries))
+            (push (list name (alist-get (intern name) obj) entries) fields))))))))
+
+(defun azos/pcap--entry-hex (entry frame-hex)
+  "Return the hex bytes of raw ENTRY, slicing FRAME-HEX for bitmask fields."
+  (pcase-let ((`(,hex ,pos ,len ,mask . ,_) entry))
+    (if (and (or (not (eql mask 0)) (/= (length hex) (* 2 len)))
+             frame-hex (<= (* 2 (+ pos len)) (length frame-hex)))
+        (substring frame-hex (* 2 pos) (* 2 (+ pos len)))
+      hex)))
+
+(defun azos/pcap--insert-hexdump (hex)
+  "Insert HEX (a hex string) as a 16-bytes-per-line hex + ASCII dump."
+  (let ((bytes (cl-loop for i from 0 below (1- (length hex)) by 2
+                        collect (string-to-number (substring hex i (+ i 2)) 16))))
+    (cl-loop for off from 0 by 16
+             for line = (seq-take (nthcdr off bytes) 16)
+             while line
+             do (insert (format "%04x  " off)
+                        (mapconcat (lambda (b) (format "%02x" b)) (seq-take line 8) " ")
+                        "  "
+                        (mapconcat (lambda (b) (format "%02x" b)) (seq-drop line 8) " ")
+                        (make-string (+ (* 3 (- 16 (length line))) (if (> (length line) 8) 0 1)) ?\s)
+                        "   "
+                        (mapconcat (lambda (b) (if (<= 32 b 126) (string b) ".")) line "")
+                        "\n"))))
+
+(defvar azos/pcap--current-fields nil
+  "Fields of the packet being completed by `azos/pcap-view-field-hex'.")
+
+(defun azos/pcap--field-annotation (name)
+  "Annotate field NAME with its value and description."
+  (let ((show (nth 1 (assoc name azos/pcap--current-fields)))
+        (desc (gethash name (azos/pcap-fields))))
+    (concat (and show (format "  = %s" show))
+            (and desc (format "  — %s" desc)))))
+
+(defun azos/pcap--field-table (str pred action)
+  "Completion table over `azos/pcap--current-fields', in packet order."
+  (if (eq action 'metadata)
+      '(metadata (display-sort-function . identity)
+                 (annotation-function . azos/pcap--field-annotation))
+    (complete-with-action action azos/pcap--current-fields str pred)))
+
+(defun azos/pcap-view-field-hex ()
+  "Show a hex dump of one field of the packet at point."
+  (interactive)
+  (let* ((packet (pcap-mode--packet-number-from-tshark-list))
+         (_ (unless (and packet (string-match-p "\\`[0-9]+\\'" packet))
+              (user-error "No packet on this line")))
+         (data (azos/pcap--packet-fields (buffer-file-name) packet))
+         (frame-hex (car data))
+         (fields (cdr data))
+         (field (progn
+                  (setq azos/pcap--current-fields fields)
+                  (completing-read
+                   (format "Field of packet %s: " packet)
+                   #'azos/pcap--field-table nil t nil nil
+                   (seq-find (lambda (f) (assoc f fields))
+                             '("tcp.payload" "udp.payload" "data.data")))))
+         (entries (nth 2 (assoc field fields)))
+         (buf-name (format "*Packet %s: %s*" packet field)))
+    (with-current-buffer (get-buffer-create buf-name)
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (cl-loop for entry in entries
+                 for i from 1
+                 do (insert (format "%s%s — frame offset %d (0x%x), %d bytes\n\n"
+                                    field (if (cdr entries) (format " [%d]" i) "")
+                                    (nth 1 entry) (nth 1 entry) (nth 2 entry)))
+                    (azos/pcap--insert-hexdump (azos/pcap--entry-hex entry frame-hex))
+                    (insert "\n"))
+        (goto-char (point-min)))
+      (special-mode))
+    (add-to-list 'pcap-mode--pcap-packet-cleanup-list buf-name)
+    (switch-to-buffer-other-window buf-name)))
+
+(with-eval-after-load 'pcap-mode
+  (define-key pcap-mode-map (kbd "C-<return> x") #'azos/pcap-view-field-hex))
+#+end_src
+
 ** Jupyter (ein)
 
 #+begin_src emacs-lisp
