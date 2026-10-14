@@ -1217,6 +1217,49 @@ Snippet for src blocks
   (add-to-list 'org-fold-show-context-detail '(default . tree)))
 #+end_src
 
+*** Roam
+
+#+begin_src emacs-lisp
+(defvar azos/roam-keymap (make-sparse-keymap))
+(define-key azos/global-minor-mode/open-keymap (kbd "r") azos/roam-keymap)
+
+(use-package org-roam
+  :custom
+  (org-roam-directory "~/roam/")
+  (org-roam-database-connector 'sqlite-builtin)
+  :config
+  (make-directory org-roam-directory t)
+  (org-roam-db-autosync-mode)
+  (add-to-list 'org-agenda-files org-roam-directory)
+  (define-key azos/roam-keymap (kbd "f") #'org-roam-node-find)
+  (define-key azos/roam-keymap (kbd "i") #'org-roam-node-insert)
+  (define-key azos/roam-keymap (kbd "c") #'org-roam-capture)
+  (define-key azos/roam-keymap (kbd "b") #'org-roam-buffer-toggle)
+  (define-key azos/roam-keymap (kbd "l") #'org-todo-list))
+
+(with-eval-after-load 'org-agenda
+  (evil-set-initial-state 'org-agenda-mode 'motion)
+  (evil-collection-define-key 'motion 'org-agenda-mode-map
+    (kbd "RET") #'org-agenda-switch-to))
+#+end_src
+
+*** Capture
+
+#+begin_src emacs-lisp
+(with-eval-after-load 'org
+  (setq org-capture-templates
+        '(("t" "Todo" entry
+           (file+headline "~/roam/inbox.org" "Tasks")
+           "* TODO %?\n  %U\n  %a")
+          ("n" "Note" entry
+           (file+headline "~/roam/inbox.org" "Notes")
+           "* %?\n  %U")
+          ("j" "Journal" entry
+           (file+datetree "~/roam/journal.org")
+           "* %?\n  Entered on %U\n")))
+  (define-key azos/roam-keymap (kbd "n") #'org-capture))
+#+end_src
+
 ** Ibuffer
 
 #+begin_src emacs-lisp

@@ -6,7 +6,7 @@
 }:
 orgTrivialBuild {
   pname = "azos-emacs-base";
-  version = "0.1.7";
+  version = "0.1.8";
   src = ./config.org;
   packageRequires = with epkgs; [
     evil
@@ -37,5 +37,6 @@ orgTrivialBuild {
     load-dir
     direnv
     csv-mode
+    org-roam
   ];
 }

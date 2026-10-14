@@ -42,7 +42,7 @@
 in
   orgTrivialBuild {
     pname = "azos-emacs-editor";
-    version = "0.1.8";
+    version = "0.1.9";
     src = ./config.org;
     packageRequires =
       [
@@ -55,7 +55,6 @@ in
         markdown-mode
         markdown-toc
         org-present
-        org-roam
         pdf-tools
         pandoc-mode
         agent-shell
