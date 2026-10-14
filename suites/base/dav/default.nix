@@ -28,7 +28,8 @@
         else "n";
     in ''
       ${lib.concatMapStrings (c: "mkdir -p ${lib.escapeShellArg "${a.local.path}/${c}"}\n") explicit}
-      if ! out=$(${vdirsyncer} discover ${lib.escapeShellArg name} 2>&1 < <(${pkgs.coreutils}/bin/yes ${answer})); then
+      # home-manager's vdirsyncer module names each calendar pair calendar_<account>.
+      if ! out=$(${vdirsyncer} discover ${lib.escapeShellArg "calendar_${name}"} 2>&1 < <(${pkgs.coreutils}/bin/yes ${answer})); then
         echo "$out" >&2
         exit 1
       fi
