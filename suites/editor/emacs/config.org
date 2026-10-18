@@ -295,22 +295,34 @@ Harper is a grammar and spell checker. We use =eglot= (built-in) with
      (org-in-src-block-p)
      (memq (org-element-type (org-element-at-point))
            '(keyword property-drawer node-property comment
-             comment-block export-block latex-environment src-block))
+             comment-block export-block latex-environment src-block
+             example-block fixed-width))
      (eq (org-element-type (org-element-context)) 'latex-fragment))))
 
-(defun azos/harper-filter-org-src-diags (orig-fn diags)
-  "Filter harper diagnostics in org: skip code, keywords, and latex."
-  (funcall orig-fn
+(defun azos/harper-filter-org-src-diags (orig-fn report-fn &rest args)
+  "Filter harper diagnostics in org: skip code, results, keywords, and latex.
+Wraps the flymake REPORT-FN handed to `eglot-flymake-backend', so it
+does not depend on eglot internals."
+  (let ((buf (current-buffer)))
+    (apply orig-fn
            (if (derived-mode-p 'org-mode)
-               (cl-remove-if
-                (lambda (d)
-                  (azos/harper-org-pos-excluded-p (flymake-diagnostic-beg d)))
-                diags)
-             diags)))
+               (lambda (diags &rest keys)
+                 (apply report-fn
+                        (if (and (listp diags) (buffer-live-p buf))
+                            (with-current-buffer buf
+                              (cl-remove-if
+                               (lambda (d)
+                                 (azos/harper-org-pos-excluded-p
+                                  (flymake-diagnostic-beg d)))
+                               diags))
+                          diags)
+                        keys))
+             report-fn)
+           args)))
 
 (defun azos/harper-eglot-org-setup ()
   "Start eglot in org-mode with src block diagnostic filtering."
-  (advice-add 'eglot--report-to-flymake :around
+  (advice-add 'eglot-flymake-backend :around
               #'azos/harper-filter-org-src-diags
               '((name . azos-harper-org-filter)))
   (eglot-ensure))
