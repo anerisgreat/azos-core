@@ -37,33 +37,59 @@
       type = lib.types.int;
       description = ''
         Installs a global PreToolUse hook (matcher "Bash") in
-        ~/.claude/settings.json that transparently wraps every Bash command
-        Claude Code runs: it times the command, and if it ran at or past
-        this threshold, fires azos-send-alert with the elapsed time and exit
-        code once it finishes. Commands that finish faster are unaffected.
+        ~/.claude/settings.json that prefixes every Bash command Claude Code
+        runs with a single `azos-notify-watch` line. That spawns a detached
+        watcher which waits for the shell running the command to exit and,
+        if it ran at or past this threshold, fires azos-send-alert with the
+        elapsed time. Commands that finish faster are unaffected.
 
         This exists so long-running commands (big transfers, builds) notify
         automatically even when Claude never thinks to chain azos-send-alert
         itself, and even if the harness moves the command to the background
         partway through.
 
-        The hook only adds timing + notification around the command as
-        given -- it does not change permissions, so normal confirmation
-        prompts for risky commands still happen exactly as before.
+        The hook doesn't change permissions, but Claude Code matches
+        permission rules against the *rewritten* command, so the prefix
+        has to be a plain literal command (no `.`, `trap`, `$VAR`, or
+        `$(...)` -- each of those forces a prompt and defeats every saved
+        allow rule). A `Bash(azos-notify-watch)` allow rule is added
+        alongside the hook so the prefix itself never prompts; the user's
+        command is then checked against the user's rules exactly as before,
+        deny rules included. Because nothing can follow the command without
+        using `$?`, the watcher can't see its exit code.
       '';
     };
 
     config = lib.mkIf config.azos.send-alert.enable (let
       threshold = toString config.azos.send-alert.longCommandThresholdSeconds;
-      # Rewrites every Bash tool command to time itself and fire
-      # azos-send-alert if it ran at or past the threshold. The original
-      # command is spliced in verbatim (not eval'd from an encoded blob)
-      # so it stays human-readable in any permission prompt, and it's run
-      # in a subshell so the wrapper's own timing/notify code still runs
-      # even if the original command uses `set -e` or calls `exit`.
-      # permissionDecision is deliberately omitted from the hook's JSON
-      # output: supplying it (even as "allow") would bypass the normal
-      # confirmation flow, which must stay untouched here.
+
+      # Run as the first line of a Bash tool command. Its parent is the shell
+      # running the command, so it re-launches itself detached (setsid, all
+      # fds closed so the Bash tool doesn't wait on it), blocks until that
+      # shell exits, then alerts if it ran long enough.
+      notifyWatch = pkgs.writeShellApplication {
+        name = "azos-notify-watch";
+        runtimeInputs = with pkgs; [coreutils util-linux];
+        text = ''
+          if [ "''${1:-}" = "--wait" ]; then
+            pid=$2
+            start=$3
+            tail --pid="$pid" -f /dev/null
+            dur=$(( $(date +%s) - start ))
+            if [ "$dur" -ge ${threshold} ]; then
+              azos-send-alert -t "Long command" -T hourglass "Finished in $dur s" >/dev/null 2>&1 || true
+            fi
+            exit 0
+          fi
+
+          setsid -f "$0" --wait "$PPID" "$(date +%s)" </dev/null >/dev/null 2>&1
+        '';
+      };
+
+      # Prefixes every Bash tool command with a literal `azos-notify-watch`
+      # line; the original command follows verbatim. permissionDecision is
+      # deliberately omitted from the hook's JSON output: supplying it (even
+      # as "allow") would bypass the normal confirmation flow.
       bashNotifyHook = pkgs.writeShellApplication {
         name = "azos-bash-notify-hook";
         runtimeInputs = [pkgs.jq];
@@ -76,19 +102,8 @@
             exit 0
           fi
 
-          wrapped="__azos_notify_start=\$(date +%s)
-          (
-          $command
-          )
-          __azos_notify_rc=\$?
-          __azos_notify_dur=\$(( \$(date +%s) - __azos_notify_start ))
-          if [ \"\$__azos_notify_dur\" -ge ${threshold} ]; then
-            __azos_notify_tag=\$([ \"\$__azos_notify_rc\" -eq 0 ] && echo white_check_mark || echo x)
-            azos-send-alert -t \"Long command\" -T \"\$__azos_notify_tag\" \"Finished in \$__azos_notify_dur s (exit \$__azos_notify_rc)\" >/dev/null 2>&1 || true
-          fi
-          exit \"\$__azos_notify_rc\""
-
-          jq -n --arg cmd "$wrapped" \
+          jq -n --arg cmd "azos-notify-watch
+          $command" \
             '{hookSpecificOutput: {hookEventName: "PreToolUse", updatedInput: {command: $cmd}}}' 2>/dev/null || echo '{}'
         '';
       };
@@ -103,20 +118,24 @@
             matcher: "Bash",
             hooks: [{type: "command", command: $cmd}]
           }')
+        ALLOW_RULE='Bash(azos-notify-watch)'
 
         if [ -f "$SETTINGS_JSON" ]; then
           tmp=$(mktemp)
           ${pkgs.jq}/bin/jq --argjson entry "$HOOK_ENTRY" \
-            '.hooks.PreToolUse = ((.hooks.PreToolUse // []) | map(select(.matcher != $entry.matcher))) + [$entry]' \
+            --arg rule "$ALLOW_RULE" \
+            '.hooks.PreToolUse = ((.hooks.PreToolUse // []) | map(select(.matcher != $entry.matcher))) + [$entry]
+             | .permissions.allow = ((.permissions.allow // []) | if any(.[]; . == $rule) then . else . + [$rule] end)' \
             "$SETTINGS_JSON" > "$tmp" && mv "$tmp" "$SETTINGS_JSON"
         else
-          ${pkgs.jq}/bin/jq -n --argjson entry "$HOOK_ENTRY" \
-            '{hooks: {PreToolUse: [$entry]}}' > "$SETTINGS_JSON"
+          ${pkgs.jq}/bin/jq -n --argjson entry "$HOOK_ENTRY" --arg rule "$ALLOW_RULE" \
+            '{hooks: {PreToolUse: [$entry]}, permissions: {allow: [$rule]}}' > "$SETTINGS_JSON"
         fi
       '';
 
       home.packages = [
         bashNotifyHook
+        notifyWatch
         (pkgs.writeShellApplication {
           name = "azos-send-alert";
           runtimeInputs = with pkgs; [libnotify];
