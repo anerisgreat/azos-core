@@ -29,7 +29,8 @@ require an App Password (myaccount.google.com/apppasswords) — not your regular
 mu init --maildir=~/Mail \
   --my-address=aner@zakobar.com \
   --my-address=anerisgreat@gmail.com \
-  --my-address=anerz@post.bgu.ac.il
+  --my-address=anerz@post.bgu.ac.il \
+  --my-address=aner.zakobar@security.uno
 mu index
 #+end_src
 
@@ -91,25 +92,40 @@ mu index
                   (mu4e-sent-folder   . "/bgu/[Gmail]/Sent Mail")
                   (mu4e-drafts-folder . "/bgu/[Gmail]/Drafts")
                   (mu4e-trash-folder  . "/bgu/[Gmail]/Bin")
-                  (mu4e-refile-folder . "/bgu/[Gmail]/All Mail")))))
+                  (mu4e-refile-folder . "/bgu/[Gmail]/All Mail")))
+         (make-mu4e-context
+          :name "SecurityUno"
+          :match-func (lambda (msg)
+                        (when msg
+                          (string-prefix-p "/securityuno" (mu4e-message-field msg :maildir))))
+          :vars '((user-mail-address  . "aner.zakobar@security.uno")
+                  (user-full-name     . "Aner Zakobar")
+                  (mu4e-sent-folder   . "/securityuno/[Gmail]/Sent Mail")
+                  (mu4e-drafts-folder . "/securityuno/[Gmail]/Drafts")
+                  (mu4e-trash-folder  . "/securityuno/[Gmail]/Trash")
+                  (mu4e-refile-folder . "/securityuno/[Gmail]/All Mail")))))
   (let ((mu4e-trash-exclusions
          (concat "AND NOT maildir:/gmail/[Gmail]/Trash"
                  " AND NOT maildir:/gmail/[Gmail]/Spam"
                  " AND NOT maildir:/gmail/[Gmail]/All\\ Mail"
                  " AND NOT maildir:/bgu/[Gmail]/Bin"
                  " AND NOT maildir:/bgu/[Gmail]/All\\ Mail"
+                 " AND NOT maildir:/securityuno/[Gmail]/Trash"
+                 " AND NOT maildir:/securityuno/[Gmail]/Spam"
+                 " AND NOT maildir:/securityuno/[Gmail]/All\\ Mail"
                  " AND NOT maildir:/zakobar/Trash"
                  " AND NOT maildir:/zakobar/Spam"
                  " AND NOT maildir:\"/zakobar/Deleted Messages\"")))
     (setq mu4e-bookmarks
-          `((:name "Inbox"  :query "(maildir:/zakobar/INBOX OR maildir:/gmail/INBOX OR maildir:/bgu/INBOX) AND NOT flag:trashed" :key ?i)
+          `((:name "Inbox"  :query "(maildir:/zakobar/INBOX OR maildir:/gmail/INBOX OR maildir:/bgu/INBOX OR maildir:/securityuno/INBOX) AND NOT flag:trashed" :key ?i)
             (:name "Unread" :query ,(concat "flag:unread AND NOT flag:trashed " mu4e-trash-exclusions) :key ?u)
             (:name "Today"  :query ,(concat "date:today..now AND NOT flag:trashed " mu4e-trash-exclusions) :key ?t)
             (:name "Week"   :query ,(concat "date:7d..now AND NOT flag:trashed " mu4e-trash-exclusions) :key ?w))))
   (setq mu4e-maildir-shortcuts
         '((:maildir "/zakobar/Inbox" :key ?z)
           (:maildir "/gmail/Inbox"   :key ?g)
-          (:maildir "/bgu/Inbox"     :key ?b)))
+          (:maildir "/bgu/Inbox"     :key ?b)
+          (:maildir "/securityuno/Inbox" :key ?s)))
   (defun azos/mail/open ()
     "Open mu4e in its dedicated \"mail\" tab."
     (interactive)
