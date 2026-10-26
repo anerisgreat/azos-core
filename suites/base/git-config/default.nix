@@ -22,9 +22,9 @@
         done
         case "$host" in
         ${lib.concatStrings (lib.mapAttrsToList (host: entry: ''
-          ${lib.escapeShellArg host}) entry=${lib.escapeShellArg entry} ;;
-        '')
-        cfg.credentials)}
+            ${lib.escapeShellArg host}) entry=${lib.escapeShellArg entry} ;;
+          '')
+          cfg.credentials)}
         *) exit 0 ;;
         esac
         if username=$(azos-password-get "$entry" username 2>/dev/null); then
