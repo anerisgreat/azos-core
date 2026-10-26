@@ -1,0 +1,175 @@
+#+title: Aner's Emacs Marp Configuration
+#+property: header-args :results silent
+
+* Base setup
+** Require
+
+#+begin_src emacs-lisp
+(require 'azos-emacs-base)
+(require 'markdown-mode)
+#+end_src
+
+* Marp
+
+Slide decks written as [[https://marp.app][Marp]] markdown. Themes live in
+=~/.config/marp/themes/= (deployed by the =marp= nix feature, default theme
+=azos=), and new decks are copied from =~/.config/marp/template.md=, which
+demonstrates the theme's layouts.
+
+** Settings
+
+#+begin_src emacs-lisp
+(defgroup azos/marp nil
+  "Marp presentations."
+  :group 'tools)
+
+(defcustom azos/marp-theme-dir (expand-file-name "~/.config/marp/themes/")
+  "Directory passed to marp as --theme-set."
+  :type 'directory)
+
+(defcustom azos/marp-template (expand-file-name "~/.config/marp/template.md")
+  "Template copied by `azos/marp/new'."
+  :type 'file)
+
+(defcustom azos/marp-default-theme "azos"
+  "Theme used when the deck's front matter doesn't set one."
+  :type 'string)
+#+end_src
+
+** Front matter helpers
+
+#+begin_src emacs-lisp
+(defun azos/marp--front-matter-value (key)
+  "Return the value of KEY in the current buffer's YAML front matter, or nil."
+  (save-excursion
+    (goto-char (point-min))
+    (when (looking-at-p "^---[ \t]*$")
+      (forward-line 1)
+      (let ((start (point))
+            (end (and (re-search-forward "^---[ \t]*$" nil t) (point))))
+        (when end
+          (goto-char start)
+          (when (re-search-forward
+                 (format "^%s:[ \t]*\\(.*?\\)[ \t]*$" (regexp-quote key)) end t)
+            (string-trim (match-string-no-properties 1) "[\"']" "[\"']")))))))
+
+(defun azos/marp--deck-p ()
+  "Non-nil if the current buffer is a Marp deck (front matter `marp: true')."
+  (equal (azos/marp--front-matter-value "marp") "true"))
+
+(defun azos/marp--themes ()
+  "Theme names available in `azos/marp-theme-dir'."
+  (mapcar #'file-name-base
+          (directory-files azos/marp-theme-dir nil "\\.css\\'")))
+#+end_src
+
+** Commands
+
+=azos/marp/new= creates a deck from the template. =azos/marp/render= renders
+the current deck to HTML next to it; with a prefix argument it prompts for the
+theme instead of using the front matter / default.
+
+The input file is passed *before* the options: =--theme-set= is an array
+option and would otherwise swallow the input file as another theme path.
+=--no-stdin= is needed because marp reads stdin whenever it isn't a TTY and
+would wait forever on the process pipe. The sentinel gets its state from
+process properties since this file isn't tangled with lexical binding.
+
+#+begin_src emacs-lisp
+(defun azos/marp/new (file)
+  "Create a new Marp deck at FILE from `azos/marp-template' and open it."
+  (interactive
+   (list (read-file-name "New Marp deck: " nil nil nil nil
+                         (lambda (f) (or (file-directory-p f)
+                                         (string-suffix-p ".md" f))))))
+  (let ((file (if (string-suffix-p ".md" file) file (concat file ".md"))))
+    (when (file-exists-p file)
+      (user-error "%s already exists" file))
+    (make-directory (file-name-directory (expand-file-name file)) t)
+    (copy-file azos/marp-template file)
+    ;; The template comes from the read-only nix store.
+    (set-file-modes file #o644)
+    (find-file file)))
+
+(defun azos/marp--output-file (input)
+  (concat (file-name-sans-extension input) ".html"))
+
+(defun azos/marp/render (&optional choose-theme callback)
+  "Render the current Marp deck to HTML next to the source file.
+With prefix arg CHOOSE-THEME, prompt for the theme.  CALLBACK, if
+non-nil, is called with the output file on success."
+  (interactive "P")
+  (unless buffer-file-name
+    (user-error "Buffer is not visiting a file"))
+  (save-buffer)
+  (let* ((input buffer-file-name)
+         (output (azos/marp--output-file input))
+         (theme (if choose-theme
+                    (completing-read "Marp theme: " (azos/marp--themes) nil t)
+                  (or (azos/marp--front-matter-value "theme")
+                      azos/marp-default-theme)))
+         (buf (get-buffer-create "*marp*")))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t)) (erase-buffer)))
+    (message "Rendering %s..." (file-name-nondirectory input))
+    (let ((proc (make-process
+                 :name "marp"
+                 :buffer buf
+                 :connection-type 'pipe
+                 :command (list "marp" input
+                                "--html" "--allow-local-files" "--no-stdin"
+                                "--theme" theme
+                                "--theme-set" (expand-file-name azos/marp-theme-dir)
+                                "-o" output)
+                 :sentinel #'azos/marp--sentinel)))
+      (process-put proc 'azos/marp-output output)
+      (process-put proc 'azos/marp-callback callback))))
+
+(defun azos/marp--sentinel (proc _event)
+  (when (memq (process-status proc) '(exit signal))
+    (let ((output (process-get proc 'azos/marp-output))
+          (callback (process-get proc 'azos/marp-callback)))
+      (if (zerop (process-exit-status proc))
+          (progn
+            (message "Rendered %s" (abbreviate-file-name output))
+            (when callback (funcall callback output)))
+        (message "Marp failed, see *marp*")
+        (display-buffer (process-buffer proc))))))
+
+(defun azos/marp/render-and-open (&optional choose-theme)
+  "Render the current Marp deck and open the HTML in a browser."
+  (interactive "P")
+  (azos/marp/render choose-theme #'browse-url-of-file))
+#+end_src
+
+** Minor mode
+
+Enabled automatically in markdown buffers whose front matter has =marp: true=.
+
+#+begin_src emacs-lisp
+(defvar azos/marp-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "C-c C-r") #'azos/marp/render)
+    (define-key map (kbd "C-c C-v") #'azos/marp/render-and-open)
+    map)
+  "Keymap for `azos/marp-mode'.")
+
+(define-minor-mode azos/marp-mode
+  "Render Marp decks from markdown buffers."
+  :lighter " Marp"
+  :keymap azos/marp-mode-map)
+
+(defun azos/marp--maybe-enable ()
+  (when (azos/marp--deck-p)
+    (azos/marp-mode 1)))
+
+(add-hook 'markdown-mode-hook #'azos/marp--maybe-enable)
+
+(define-key azos/global-minor-mode/open-keymap (kbd "D") #'azos/marp/new)
+#+end_src
+
+* Provide
+
+#+begin_src emacs-lisp
+(provide 'azos-emacs-marp)
+#+end_src
