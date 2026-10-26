@@ -26,7 +26,7 @@
         instead runs with AZOS_SEND_ALERT_PRINT_REMOTE=1 set and its stdout
         is captured and printed -- the convention is that the command checks
         this variable and, if set, resolves any local secrets (e.g. via
-        `pass`) and prints a fully self-contained invocation that a remote
+        `azos-password-get`) and prints a fully self-contained invocation that a remote
         host without those secrets can run (see azos/features/homey-alert in
         the azos project for the ntfy-backed implementation of this).
       '';

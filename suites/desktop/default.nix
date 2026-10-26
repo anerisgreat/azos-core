@@ -109,7 +109,6 @@
       home.packages = with pkgs; [
         mpv
         upower
-        pass
         exfatprogs
         e2fsprogs
       ];

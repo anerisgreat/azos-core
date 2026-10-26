@@ -13,7 +13,6 @@ orgTrivialBuild {
     mu4e
     elfeed #PROBABLY ALSO BUILT IN
     elfeed-tube
-    pass
     scad-mode
     kubernetes
     wttrin

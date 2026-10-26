@@ -14,20 +14,20 @@
         description = ''
           Base GPG agent setup: programs.gpg, gpg-agent with pinentry-emacs
           and ssh support, and the EXWM-aware INSIDE_EMACS wiring pinentry
-          needs. Password store, YubiKey tooling, browserpass, and
-          GPG-as-SSH-key are each independently toggleable on top of this.
+          needs. YubiKey tooling, browserpass, and GPG-as-SSH-key are each
+          independently toggleable on top of this. The password store
+          itself lives in azos.password-manager.
         '';
       };
 
-      passwordStore = {
-        enable = lib.mkOption {
-          default = true;
-          type = lib.types.bool;
-        };
-        gpgKeyId = lib.mkOption {
-          type = lib.types.str;
-          description = "GPG key id `pass` encrypts secrets with (PASSWORD_STORE_KEY).";
-        };
+      sshSupport = lib.mkOption {
+        default = true;
+        type = lib.types.bool;
+        description = ''
+          Run gpg-agent as the SSH agent (sets SSH_AUTH_SOCK). Turn off when
+          another agent should own SSH_AUTH_SOCK, e.g. 1Password's SSH agent
+          or the desktop's keyring.
+        '';
       };
 
       yubikey.enable = lib.mkOption {
@@ -74,7 +74,7 @@
         programs.gpg.enable = true;
         services.gpg-agent = {
           enable = true;
-          enableSshSupport = true;
+          enableSshSupport = cfg.sshSupport;
           grabKeyboardAndMouse = false;
           pinentry.package = pkgs.pinentry-emacs;
           extraConfig = ''
@@ -119,13 +119,6 @@
         '';
       }
 
-      (lib.mkIf cfg.passwordStore.enable {
-        programs.password-store = {
-          enable = true;
-          settings.PASSWORD_STORE_KEY = cfg.passwordStore.gpgKeyId;
-        };
-      })
-
       (lib.mkIf cfg.yubikey.enable {
         home.packages = [pkgs.yubikey-personalization];
       })
@@ -138,6 +131,12 @@
       })
 
       (lib.mkIf cfg.gpgSsh.enable {
+        assertions = [
+          {
+            assertion = cfg.sshSupport;
+            message = "azos.encryption.gpgSsh needs azos.encryption.sshSupport (gpg-agent serves the SSH socket).";
+          }
+        ];
         home.file.".ssh/config".text =
           ''
             IdentityAgent ''${XDG_RUNTIME_DIR}/gnupg/S.gpg-agent.ssh

@@ -259,18 +259,63 @@ Setting up keymaps
 (set-locale-environment "en_US.UTF-8")
 #+end_src
 
-** Auth Source (pass)
+** Password manager
 
-Route Emacs' generic =auth-source-search= (used by lichess.el,
-gptel, mu4e, tramp, etc.) through the =pass= password store, so
-package tokens/passwords can live in =pass= instead of
-=~/.authinfo= or hardcoded in this config. Store an entry under the
-bare hostname the caller searches on (e.g. =pass insert lichess.org=)
-per the flat naming convention already used for mbsync/caldav.
+Which password manager backs Emacs is chosen in Nix
+(=azos.password-manager=), not here. That module drops
+=~/.emacs.d/extra/azos-password-manager.el=, which routes Emacs'
+generic =auth-source-search= (used by lichess.el, gptel, mu4e, tramp,
+etc.) through the active backend: =auth-source-pass= for pass,
+=auth-source-1password= for 1Password. Store secrets under the bare
+hostname the caller searches on (e.g. =pass insert lichess.org=, or a
+1Password item titled =lichess.org=).
+
+The copy command below goes through the backend-agnostic
+=azos-password-list= / =azos-password-get= scripts the same module
+installs, so it works the same for either backend.
 
 #+begin_src emacs-lisp
-(require 'auth-source-pass)
-(auth-source-pass-enable)
+(defcustom azos/password/clear-seconds 45
+  "Seconds after which `azos/password/copy' clears the copied secret."
+  :type 'integer
+  :group 'azos)
+
+(defvar azos/password/clear-timer nil)
+
+(defun azos/password/--run (program &rest args)
+  "Run PROGRAM with ARGS, returning trimmed stdout or signalling an error."
+  (unless (executable-find program)
+    (user-error "%s not found; is azos.password-manager configured?" program))
+  (with-temp-buffer
+    (let ((status (apply #'call-process program nil (list t nil) nil args)))
+      (unless (eq status 0)
+        (user-error "%s failed (exit %s)" program status))
+      (string-trim-right (buffer-string)))))
+
+(defun azos/password/copy (entry &optional field)
+  "Copy FIELD (default password) of password-manager ENTRY to the kill ring.
+With a prefix argument, prompt for FIELD.  The secret is cleared from the
+kill ring and clipboard after `azos/password/clear-seconds'."
+  (interactive
+   (list (completing-read "Entry: "
+                          (split-string (azos/password/--run "azos-password-list")
+                                        "\n" t))
+         (when current-prefix-arg (read-string "Field: " nil nil "password"))))
+  (let ((secret (azos/password/--run "azos-password-get" entry
+                                     (or field "password"))))
+    (when (timerp azos/password/clear-timer)
+      (cancel-timer azos/password/clear-timer))
+    (kill-new secret)
+    (setq azos/password/clear-timer
+          (run-at-time azos/password/clear-seconds nil
+                       (lambda ()
+                         (when (equal (car kill-ring) secret)
+                           (setq kill-ring (cdr kill-ring))
+                           (gui-select-text "")))))
+    (message "Copied %s of %s; clearing in %ds"
+             (or field "password") entry azos/password/clear-seconds)))
+
+(define-key azos/global-minor-mode/open-keymap (kbd "p") #'azos/password/copy)
 #+end_src
 
 * UI

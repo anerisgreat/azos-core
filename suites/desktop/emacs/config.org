@@ -20,7 +20,7 @@
 
 *** General instructions
 
-Prerequisites: =pass= entries set up, mbsync run at least once. Gmail accounts
+Prerequisites: password-manager entries for each account's passwordCommand set up, mbsync run at least once. Gmail accounts
 require an App Password (myaccount.google.com/apppasswords) — not your regular password.
 
 =mu= is auto-initialized by home-manager activation on first deploy. To re-initialize manually:
@@ -284,15 +284,6 @@ https://github.com/karthink/elfeed-tube
   :bind (:map elfeed-show-mode-map
               ("C-c C-f" . elfeed-tube-mpv-follow-mode)
               ("C-c C-w" . elfeed-tube-mpv-where)))
-#+end_src
-
-** Pass
-
-#+begin_src emacs-lisp
-(use-package pass
-  :bind
-    (:map azos/global-minor-mode/open-keymap
-        ("p" . password-store-copy)))
 #+end_src
 
 ** Calendar

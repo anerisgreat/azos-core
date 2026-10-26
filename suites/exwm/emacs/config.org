@@ -135,13 +135,17 @@ name to the URL when launched in --app mode, so we check both."
 Global keybindings can be defined with `exwm-input-global-keys'.
 Here are a few examples:
 #+begin_src emacs-lisp
+(defvar azos/exwm/lock-command "slock"
+  "Shell command that locks the screen.
+Set from Nix (azos.exwm.lockCommand) via ~/.emacs.d/extra/azos-exwm-host.el.")
+
 (add-hook 'azos/exwm/load-hook (lambda ()
     (setq exwm-input-global-keys
       `(
-        ;; Bind "s-<f2>" to "slock", a simple X display locker.
+        ;; Bind "s-<f2>" to lock the screen (azos.exwm.lockCommand).
         ([s-f2] . (lambda ()
             (interactive)
-            (start-process "" nil "/usr/bin/slock")))
+            (start-process-shell-command "azos-lock" nil azos/exwm/lock-command)))
         ([s-tab] . persp-switch)
         ;; Bind "s-r" to exit char-mode and fullscreen mode.
         ([?\s-r] . exwm-reset)
