@@ -52,9 +52,39 @@
           default = false;
           type = lib.types.bool;
         };
+        format = lib.mkOption {
+          default = "openpgp";
+          type = lib.types.enum ["openpgp" "ssh"];
+          description = ''
+            "openpgp": sign with a GPG key (gpg-agent, YubiKey, ...).
+            "ssh": sign with an SSH key, e.g. one held in 1Password's SSH
+            agent.
+          '';
+        };
         key = lib.mkOption {
           type = lib.types.str;
-          description = "GPG key id git signs commits with.";
+          example = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA...";
+          description = ''
+            openpgp: the GPG key id. ssh: the public key itself (the whole
+            "ssh-ed25519 AAAA..." line), or a path to it.
+          '';
+        };
+        sshProgram = lib.mkOption {
+          type = lib.types.nullOr lib.types.str;
+          default =
+            if config.azos.password-manager.onepassword.enable
+            then "/opt/1Password/op-ssh-sign"
+            else null;
+          defaultText = lib.literalExpression ''
+            "/opt/1Password/op-ssh-sign" if azos.password-manager.onepassword.enable, else null
+          '';
+          description = ''
+            ssh format only: program git signs with (gpg.ssh.program). null
+            uses ssh-keygen with the key from SSH_AUTH_SOCK or disk.
+            1Password's signer asks the app to approve each signature. The
+            default path is where 1Password's deb/rpm installs it; on NixOS
+            use "''${pkgs._1password-gui}/bin/op-ssh-sign".
+          '';
         };
       };
       credentials = lib.mkOption {
@@ -105,6 +135,19 @@
         programs.git.signing = {
           key = cfg.signing.key;
           signByDefault = true;
+        };
+      })
+
+      (lib.mkIf (cfg.signing.enable && cfg.signing.format == "ssh") {
+        programs.git.signing = {
+          format = "ssh";
+          # Lets `git log --show-signature` verify your own commits. Only
+          # possible when the key is given inline rather than as a path.
+          allowedSigners =
+            lib.mkIf
+            (lib.hasPrefix "ssh-" cfg.signing.key || lib.hasPrefix "key::" cfg.signing.key)
+            "${cfg.userEmail} ${lib.removePrefix "key::" cfg.signing.key}";
+          signer = lib.mkIf (cfg.signing.sshProgram != null) cfg.signing.sshProgram;
         };
       })
 
