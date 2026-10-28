@@ -17,7 +17,7 @@
         Shell command s-<f2> runs to lock the screen. X lockers need
         privileges a user-level Nix install can't grant (setuid, PAM), so
         install the locker on the host (NixOS: programs.slock.enable;
-        Fedora: dnf install slock) and refer to it here.
+        Debian: apt install slock) and refer to it here.
       '';
     };
     config = lib.mkIf config.azos.suites.exwm.enable {
