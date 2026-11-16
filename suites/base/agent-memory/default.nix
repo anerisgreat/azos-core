@@ -4,12 +4,25 @@
       pname = "org-roam-mcp";
       version = "0.1.0";
       pyproject = true;
-      src = pkgs.fetchFromGitHub {
-        owner = "anerisgreat";
-        repo = "org-roam-mcp";
-        rev = "8a169a9ec3fec1305a0573a1fddb9fcae97bcc2a";
-        sha256 = "19d41p7rgpiqfdg11h585zw15mz9p7iml9f77zxllcbp4mrdamp6";
-      };
+      # Upstream moved to mcp 2.x, which the older rev crashes against;
+      # older nixpkgs still ship mcp 1.x, which the newer rev refuses.
+      src = pkgs.fetchFromGitHub (
+        {
+          owner = "anerisgreat";
+          repo = "org-roam-mcp";
+        }
+        // (
+          if pkgs.lib.versionAtLeast pkgs.python3Packages.mcp.version "2"
+          then {
+            rev = "0b8681f09300315c6802050ac8cbeda7fbf95841";
+            hash = "sha256-EjpgbQh70R1Ek3/G7NHop67jt3q4WKVG6rCGi0eohOI=";
+          }
+          else {
+            rev = "8a169a9ec3fec1305a0573a1fddb9fcae97bcc2a";
+            sha256 = "19d41p7rgpiqfdg11h585zw15mz9p7iml9f77zxllcbp4mrdamp6";
+          }
+        )
+      );
       build-system = [pkgs.python3Packages.hatchling];
       dependencies = with pkgs.python3Packages; [
         mcp
