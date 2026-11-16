@@ -1,0 +1,259 @@
+#+title: Emacs: Tailscale
+#+property: header-args :results silent
+
+Tailscale ships no Emacs integration and nixpkgs has no Emacs package for it,
+so everything here shells out to the =tailscale= CLI. The daemon is set up
+with =--operator=$USER=, so none of it needs sudo.
+
+* Header
+
+#+begin_src emacs-lisp
+;;; azos-emacs-tailscale.el --- Tailscale in the tab bar and under M-o T -*- lexical-binding: t; -*-
+(require 'cl-lib)
+(require 'azos-emacs-base)
+#+end_src
+
+* Tab-bar status
+
+A status icon (✓ connected / X otherwise) following the battery/network
+pattern in the exwm suite: a status string plus an async updater registered
+on the tab bar's right group. =azos.tailscale.tabBarIcon= (on by default)
+makes the generated =azos-tailscale.el= call
+=azos/tailscale/enable-tab-display=.
+
+#+begin_src emacs-lisp
+(defvar azos/tailscale/up-args nil
+  "Flags for `tailscale up' besides --operator, from azos.tailscale.
+Set in the generated azos-tailscale.el, matching azos-tailscale-up.")
+
+(defvar azos/tailscale/status-string nil "Holds Tailscale status string.")
+
+(defun azos/tailscale/--format (ok)
+  "Return the tab-bar string; OK non-nil means connected."
+  (concat
+   "⛓ "
+   (propertize (if ok "✓" "X") 'face
+               (list :foreground (if ok "green3" "red3")
+                     :background "LightYellow3"
+                     :box (list :color "DarkSlateGrey")))))
+
+(defun azos/tailscale/get-status-string ()
+  "Get Tailscale status string."
+  (or azos/tailscale/status-string ""))
+
+(defun azos/tailscale/set-status-string-sentinel (process _event)
+  "Async sentinel: set the status string from `tailscale status --json'."
+  (when (memq (process-status process) '(exit signal))
+    (let* ((output (with-current-buffer (process-buffer process) (buffer-string)))
+           (state (and (= 0 (process-exit-status process))
+                       (condition-case nil
+                           (gethash "BackendState" (json-parse-string output))
+                         (error nil)))))
+      (setq azos/tailscale/status-string
+            (azos/tailscale/--format (equal state "Running")))
+      (kill-buffer (process-buffer process)))))
+
+(defun azos/tailscale/set-status-string ()
+  "Asynchronously update the Tailscale tab-bar status string."
+  (when (executable-find "tailscale")
+    (set-process-sentinel
+     (start-process "azos-tailscale-status"
+                    (generate-new-buffer " *azos-tailscale-status*")
+                    "tailscale" "status" "--json" "--peers=false")
+     #'azos/tailscale/set-status-string-sentinel)))
+
+(defun azos/tailscale/enable-tab-display ()
+  "Enables Tailscale display in tab bar."
+  (cl-pushnew 'azos/tailscale/get-status-string azos/tab-bar/right-group)
+  (cl-pushnew 'azos/tailscale/set-status-string azos/tab-bar/right-update-group))
+#+end_src
+
+* Helpers
+
+#+begin_src emacs-lisp
+(defun azos/tailscale/--status ()
+  "Return `tailscale status --json' parsed to an alist; signal if unavailable."
+  (with-temp-buffer
+    (unless (and (= 0 (process-file "tailscale" nil t nil "status" "--json"))
+                 (progn (goto-char (point-min)) (looking-at-p "{")))
+      (user-error "tailscale unavailable: %s" (string-trim (buffer-string))))
+    (goto-char (point-min))
+    (json-parse-buffer :object-type 'alist :array-type 'list
+                       :null-object nil :false-object nil)))
+
+(defun azos/tailscale/--peers (data)
+  "Peer alists from status DATA, sorted by host name."
+  (sort (mapcar #'cdr (alist-get 'Peer data))
+        (lambda (a b) (string< (downcase (alist-get 'HostName a ""))
+                               (downcase (alist-get 'HostName b ""))))))
+
+(defun azos/tailscale/--pick (prompt peers)
+  "Complete on PEERS with PROMPT and return the chosen peer alist."
+  (unless peers (user-error "No matching peers"))
+  (let* ((cands (mapcar
+                 (lambda (p)
+                   (cons (format "%-24s %-16s %-8s %s"
+                                 (alist-get 'HostName p)
+                                 (car (alist-get 'TailscaleIPs p))
+                                 (alist-get 'OS p "")
+                                 (if (alist-get 'Online p) "online" "offline"))
+                         p))
+                 peers))
+         (choice (completing-read
+                  prompt
+                  (lambda (str pred action)
+                    (if (eq action 'metadata)
+                        '(metadata (display-sort-function . identity))
+                      (complete-with-action action cands str pred)))
+                  nil t)))
+    (cdr (assoc choice cands))))
+
+(defun azos/tailscale/--copy (text what)
+  "Put TEXT on the kill ring and say it was WHAT."
+  (kill-new text)
+  (message "Copied %s: %s" what text))
+
+(defun azos/tailscale/--async (name show &rest args)
+  "Run `tailscale ARGS' asynchronously in buffer *tailscale-NAME*.
+Show the buffer at once when SHOW, otherwise only when a login URL appears.
+Refresh the tab-bar indicator when it finishes."
+  (let ((buf (get-buffer-create (format "*tailscale-%s*" name))))
+    (with-current-buffer buf (let ((inhibit-read-only t)) (erase-buffer)))
+    (when show (display-buffer buf))
+    (make-process
+     :name (format "tailscale-%s" name) :buffer buf :noquery t
+     :command (cons "tailscale" args)
+     :filter (lambda (proc out)
+               (with-current-buffer (process-buffer proc)
+                 (goto-char (point-max)) (insert out))
+               (when (string-match-p "https://" out)
+                 (display-buffer (process-buffer proc))))
+     :sentinel (lambda (proc _event)
+                 (when (memq (process-status proc) '(exit signal))
+                   (message "tailscale %s: %s" name
+                            (if (= 0 (process-exit-status proc))
+                                "done"
+                              (format "failed (see %s)" (buffer-name (process-buffer proc)))))
+                   (azos/tailscale/set-status-string))))))
+#+end_src
+
+* Commands
+
+#+begin_src emacs-lisp
+(defun azos/tailscale/up ()
+  "Connect to the tailnet (shows the login URL if sign-in is needed)."
+  (interactive)
+  ;; Same flags as azos-tailscale-up: `up' insists on restating non-default
+  ;; flags. (No auth key: that's a one-off login, not a preference.)
+  (apply #'azos/tailscale/--async "up" nil "up"
+         (concat "--operator=" (user-login-name))
+         azos/tailscale/up-args))
+
+(defun azos/tailscale/down ()
+  "Disconnect from the tailnet."
+  (interactive)
+  (azos/tailscale/--async "down" nil "down"))
+
+(defun azos/tailscale/status ()
+  "Show `tailscale status' in a read-only buffer."
+  (interactive)
+  (with-current-buffer (get-buffer-create "*tailscale-status*")
+    (let ((inhibit-read-only t))
+      (erase-buffer)
+      (process-file "tailscale" nil t nil "status")
+      (goto-char (point-min)))
+    (special-mode)
+    (pop-to-buffer (current-buffer))))
+
+(defun azos/tailscale/copy-ip ()
+  "Pick a peer and copy its Tailscale IPv4 address."
+  (interactive)
+  (let ((p (azos/tailscale/--pick "Copy IP of: "
+                                  (azos/tailscale/--peers (azos/tailscale/--status)))))
+    (azos/tailscale/--copy (car (alist-get 'TailscaleIPs p))
+                           (format "%s IP" (alist-get 'HostName p)))))
+
+(defun azos/tailscale/copy-own-ip ()
+  "Copy this machine's Tailscale IPv4 address."
+  (interactive)
+  (azos/tailscale/--copy
+   (car (alist-get 'TailscaleIPs (alist-get 'Self (azos/tailscale/--status))))
+   "own IP"))
+
+(defun azos/tailscale/copy-name ()
+  "Pick a peer and copy its MagicDNS name."
+  (interactive)
+  (let ((p (azos/tailscale/--pick "Copy name of: "
+                                  (azos/tailscale/--peers (azos/tailscale/--status)))))
+    (azos/tailscale/--copy (string-remove-suffix "." (alist-get 'DNSName p))
+                           "MagicDNS name")))
+
+(defun azos/tailscale/routes ()
+  "Pick a subnet route advertised on the tailnet and copy its CIDR."
+  (interactive)
+  (let* ((data (azos/tailscale/--status))
+         (cands (cl-loop for p in (azos/tailscale/--peers data)
+                         append (mapcar (lambda (r)
+                                          (cons (format "%-20s via %s%s" r
+                                                        (alist-get 'HostName p)
+                                                        (if (alist-get 'Online p) "" " (offline)"))
+                                                r))
+                                        (alist-get 'PrimaryRoutes p)))))
+    (unless cands (user-error "No subnet routes advertised on the tailnet"))
+    (azos/tailscale/--copy
+     (cdr (assoc (completing-read "Route: " cands nil t) cands)) "route")))
+
+(defun azos/tailscale/ping ()
+  "Pick an online peer and `tailscale ping' it (shows direct vs relayed)."
+  (interactive)
+  (let ((p (azos/tailscale/--pick
+            "Ping: " (seq-filter (lambda (p) (alist-get 'Online p))
+                                 (azos/tailscale/--peers (azos/tailscale/--status))))))
+    (azos/tailscale/--async "ping" t "ping" "-c" "4"
+                            (car (alist-get 'TailscaleIPs p)))))
+
+(defun azos/tailscale/exit-node ()
+  "Route all traffic through a chosen exit node, or choose none to clear it."
+  (interactive)
+  (let* ((peers (seq-filter (lambda (p) (alist-get 'ExitNodeOption p))
+                            (azos/tailscale/--peers (azos/tailscale/--status))))
+         (none "none (clear exit node)")
+         (names (cons none (mapcar (lambda (p) (alist-get 'HostName p)) peers)))
+         (choice (completing-read "Exit node: " names nil t))
+         (peer (seq-find (lambda (p) (equal (alist-get 'HostName p) choice)) peers)))
+    (azos/tailscale/--async
+     "exit-node" nil "set"
+     (concat "--exit-node=" (if peer (car (alist-get 'TailscaleIPs peer)) "")))))
+
+(defun azos/tailscale/dired ()
+  "Pick a peer and open its home directory over TRAMP (ssh)."
+  (interactive)
+  (let ((p (azos/tailscale/--pick
+            "Browse files on: " (seq-filter (lambda (p) (alist-get 'Online p))
+                                            (azos/tailscale/--peers (azos/tailscale/--status))))))
+    (dired (format "/ssh:%s:" (car (alist-get 'TailscaleIPs p))))))
+#+end_src
+
+* M-o T
+
+#+begin_src emacs-lisp
+(defvar azos/tailscale/map (make-sparse-keymap) "Keymap for M-o T.")
+(dolist (b '(("u" . azos/tailscale/up)
+             ("d" . azos/tailscale/down)
+             ("s" . azos/tailscale/status)
+             ("i" . azos/tailscale/copy-ip)
+             ("I" . azos/tailscale/copy-own-ip)
+             ("n" . azos/tailscale/copy-name)
+             ("r" . azos/tailscale/routes)
+             ("p" . azos/tailscale/ping)
+             ("e" . azos/tailscale/exit-node)
+             ("f" . azos/tailscale/dired)))
+  (define-key azos/tailscale/map (kbd (car b)) (cdr b)))
+(define-key azos/global-minor-mode/open-keymap (kbd "T") azos/tailscale/map)
+#+end_src
+
+* Provide
+
+#+begin_src emacs-lisp
+(provide 'azos-emacs-tailscale)
+#+end_src
