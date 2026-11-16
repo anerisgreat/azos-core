@@ -1,0 +1,34 @@
+#+title: Emacs: Jinja2
+#+property: header-args :results silent
+
+* Header
+
+#+begin_src emacs-lisp
+;;; azos-emacs-jinja.el --- Jinja2 editing and linting -*- lexical-binding: t; -*-
+(require 'azos-emacs-base)
+(eval-when-compile (require 'flycheck))
+#+end_src
+
+* djlint checker
+
+jinja2-mode registers itself for =*.j2= / =*.jinja2=; this adds djlint as a
+flycheck checker (flycheck is already on globally via the dev suite). djlint
+lines look like =T038 2:0 Block tag has no matching end tag. {% if x %}=.
+
+#+begin_src emacs-lisp
+(with-eval-after-load 'flycheck
+  (flycheck-define-checker djlint
+    "Lint Jinja templates with djlint."
+    :command ("djlint" "--lint" "--profile=jinja" source)
+    :error-patterns
+    ((warning line-start (id (any "A-Z") (one-or-more digit)) " "
+              line ":" (one-or-more digit) " " (message) line-end))
+    :modes (jinja2-mode))
+  (add-to-list 'flycheck-checkers 'djlint))
+#+end_src
+
+* Provide
+
+#+begin_src emacs-lisp
+(provide 'azos-emacs-jinja)
+#+end_src
