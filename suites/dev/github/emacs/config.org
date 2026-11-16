@@ -1,0 +1,122 @@
+#+title: Emacs: GitHub
+#+property: header-args :results silent
+
+* Header
+
+#+begin_src emacs-lisp
+;;; azos-emacs-github.el --- Forge and pr-review tweaks -*- lexical-binding: t; -*-
+(require 'azos-emacs-base)
+(eval-when-compile (require 'eieio))
+#+end_src
+
+* Forge token from the password manager
+
+ghub looks its token up in auth-source by host =api.github.com= and user
+=<github.user>^forge=. When =azos.github.tokenEntry= is set, answer that
+lookup from the password manager instead of a plaintext authinfo entry: the
+entry (with =%u= replaced by the GitHub user) holds a classic token with
+=repo= and =read:org= scopes. It's fetched on first use, then cached for the
+session. When it's null, ghub keeps using plain auth-source.
+
+#+begin_src emacs-lisp
+(defvar azos/github/token-entry nil
+  "Password-manager entry for the api.github.com token; %u is the user.
+Set from azos.github.tokenEntry in the generated azos-github.el.")
+
+(defvar azos/github/token-cache nil
+  "Alist (USERNAME . TOKEN) of GitHub tokens already fetched from the password manager.")
+
+(defun azos/github/--token-advice (orig host username package &rest rest)
+  "Serve api.github.com tokens from the password manager; defer everything else to ORIG."
+  (if (equal host "api.github.com")
+      (or (cdr (assoc username azos/github/token-cache))
+          (let ((token (azos/password/--run
+                        "azos-password-get"
+                        (string-replace "%u" username azos/github/token-entry))))
+            (push (cons username token) azos/github/token-cache)
+            token))
+    (apply orig host username package rest)))
+
+(with-eval-after-load 'ghub
+  (when azos/github/token-entry
+    (advice-add 'ghub--token :around #'azos/github/--token-advice)))
+#+end_src
+
+* Forge dispatch on N
+
+evil-collection leaves forge's =N= to =evil-search-previous=; put the Forge
+dispatch back on it in Magit/Forge buffers (searching there is =/= anyway).
+
+#+begin_src emacs-lisp
+(with-eval-after-load 'evil-collection-magit
+  (evil-define-key* '(normal visual motion) magit-mode-map "N" #'forge-dispatch))
+#+end_src
+
+* pr-review: jump to the local checkout
+
+From a review comment, jump to that line in the local checkout. pr-review
+only offers a read-only GitHub copy (=C-c C-v=); this opens the real file so
+the fix can be made and committed. The path and line come from the thread
+data (comments are listed under the review, not under the diff); on a plain
+diff line it uses that line instead. Bound to =C-c C-g= (=g d= under evil) in
+pr-review buffers.
+
+#+begin_src emacs-lisp
+(defun azos/pr-review/--local-repo (owner name)
+  "Return the toplevel of an open local clone of OWNER/NAME, else prompt."
+  (or (seq-some
+       (lambda (buf)
+         (with-current-buffer buf
+           (when-let* ((top (ignore-errors (magit-toplevel)))
+                       (url (ignore-errors (magit-git-string "remote" "get-url" "origin"))))
+             (when (string-match-p (format "[:/]%s/%s\\(\\.git\\)?\\'"
+                                           (regexp-quote owner) (regexp-quote name))
+                                   url)
+               top))))
+       (buffer-list))
+      (read-directory-name (format "Local clone of %s/%s: " owner name))))
+
+(defun azos/pr-review/--thread-location ()
+  "Return (PATH . LINE) of the review thread or comment at point, else nil."
+  (let ((threads (alist-get 'nodes (alist-get 'reviewThreads pr-review--pr-info)))
+        (sec (magit-current-section))
+        loc)
+    (while (and sec (not loc))
+      (let ((id (oref sec value)))
+        (when (and (stringp id) (string-prefix-p "PRR" id))
+          (when-let* ((th (seq-find
+                           (lambda (th)
+                             (or (equal (alist-get 'id th) id)
+                                 (seq-some (lambda (c) (equal (alist-get 'id c) id))
+                                           (alist-get 'nodes (alist-get 'comments th)))))
+                           threads)))
+            (setq loc (cons (alist-get 'path th)
+                            (or (alist-get 'line th) (alist-get 'startLine th)))))))
+      (setq sec (oref sec parent)))
+    loc))
+
+(defun azos/pr-review/visit-local ()
+  "Open the local file and line for the review comment or diff line at point."
+  (interactive)
+  (let ((loc (or (azos/pr-review/--thread-location)
+                 (when-let* ((info (pr-review--get-diff-line-info (point))))
+                   (cdr info)))))
+    (unless loc (user-error "No review comment or diff line at point"))
+    (pcase-let* ((`(,path . ,line) loc)
+                 (`(,owner ,name ,_id) pr-review--pr-path)
+                 (root (azos/pr-review/--local-repo owner name)))
+      (find-file-other-window (expand-file-name path root))
+      (when line (goto-char (point-min)) (forward-line (1- line)))
+      (message "%s:%s (branch %s)" path line (or (magit-get-current-branch) "?")))))
+
+(with-eval-after-load 'pr-review
+  (define-key pr-review-mode-map (kbd "C-c C-g") #'azos/pr-review/visit-local)
+  (evil-define-key* '(normal motion) pr-review-mode-map
+    (kbd "g d") #'azos/pr-review/visit-local))
+#+end_src
+
+* Provide
+
+#+begin_src emacs-lisp
+(provide 'azos-emacs-github)
+#+end_src
