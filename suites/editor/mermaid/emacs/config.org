@@ -1,0 +1,100 @@
+#+title: Emacs: Mermaid
+#+property: header-args :results silent
+
+* Header
+
+#+begin_src emacs-lisp
+;;; azos-emacs-mermaid.el --- Inline Mermaid previews in markdown -*- lexical-binding: t; -*-
+(require 'azos-emacs-base)
+#+end_src
+
+* Rendering
+
+=M-x azos/mermaid-toggle= renders every =```mermaid= block in the buffer with
+=mmdc= (mermaid-cli, from the feature's =home.packages=) and lays the SVG over
+the block. Running it again removes the images so the source can be edited.
+
+=mmdc= drives a headless Chromium (about a second per diagram), so each block
+renders in its own async process, and results are cached by content hash:
+toggling an unchanged buffer back on is instant. The white background keeps
+diagrams readable on a dark theme.
+
+#+begin_src emacs-lisp
+(defvar azos/mermaid-cache-dir
+  (expand-file-name "azos-mermaid/" temporary-file-directory)
+  "Where rendered Mermaid diagrams are kept, named by content hash.")
+
+(defvar azos/mermaid-block-regexp
+  "^[ \t]*\\(```+\\|~~~+\\)[ \t]*mermaid[^\n]*\n\\(\\(?:.*\n\\)*?\\)[ \t]*\\1[ \t]*$"
+  "Fenced mermaid block; group 2 is the diagram source.")
+
+(defun azos/mermaid--overlays ()
+  (seq-filter (lambda (ov) (overlay-get ov 'azos-mermaid))
+              (overlays-in (point-min) (point-max))))
+
+(defun azos/mermaid--show (ov file)
+  "Display FILE over OV, if OV still exists."
+  (when (overlay-buffer ov)
+    (overlay-put ov 'display
+                 (create-image file 'svg nil
+                               :max-width (* 9 (/ (window-body-width nil t) 10))
+                               :ascent 'center))))
+
+(defun azos/mermaid--fail (ov msg)
+  (when (overlay-buffer ov)
+    (overlay-put ov 'before-string
+                 (propertize (format "[mermaid: %s]\n" (string-trim msg))
+                             'face 'error))))
+
+(defun azos/mermaid--render (ov source)
+  "Render SOURCE with mmdc and show it over OV."
+  (make-directory azos/mermaid-cache-dir t)
+  (let* ((base (expand-file-name (secure-hash 'sha1 source) azos/mermaid-cache-dir))
+         (in (concat base ".mmd"))
+         (out (concat base ".svg")))
+    (if (file-exists-p out)
+        (azos/mermaid--show ov out)
+      (with-temp-file in (insert source))
+      (let ((log (generate-new-buffer " *azos-mermaid*")))
+        (make-process
+         :name "azos-mermaid"
+         :buffer log
+         :command (list "mmdc" "--quiet" "-b" "white" "-i" in "-o" out)
+         :sentinel
+         (lambda (proc _event)
+           (unless (process-live-p proc)
+             (if (and (zerop (process-exit-status proc)) (file-exists-p out))
+                 (azos/mermaid--show ov out)
+               (azos/mermaid--fail
+                ov (with-current-buffer log
+                     ;; First line is the error; the rest is a JS stack trace.
+                     (or (car (split-string (buffer-string) "\n" t))
+                         "mmdc failed"))))
+             (kill-buffer log))))))))
+
+(defun azos/mermaid-toggle ()
+  "Toggle rendered images over the buffer's fenced mermaid blocks."
+  (interactive)
+  (if-let* ((ovs (azos/mermaid--overlays)))
+      (progn (mapc #'delete-overlay ovs)
+             (message "Mermaid previews removed"))
+    (unless (executable-find "mmdc")
+      (user-error "mmdc not found (enable azos.mermaid)"))
+    (let ((n 0))
+      (save-excursion
+        (goto-char (point-min))
+        (while (re-search-forward azos/mermaid-block-regexp nil t)
+          (let ((ov (make-overlay (match-beginning 0) (match-end 0))))
+            (overlay-put ov 'azos-mermaid t)
+            (overlay-put ov 'evaporate t)
+            (azos/mermaid--render ov (match-string-no-properties 2))
+            (setq n (1+ n)))))
+      (message (if (zerop n) "No mermaid blocks" "Rendering %d mermaid block(s)...")
+               n))))
+#+end_src
+
+* Provide
+
+#+begin_src emacs-lisp
+(provide 'azos-emacs-mermaid)
+#+end_src
