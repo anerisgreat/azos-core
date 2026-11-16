@@ -26,12 +26,74 @@ require an App Password (myaccount.google.com/apppasswords) — not your regular
 =mu= is auto-initialized by home-manager activation on first deploy. To re-initialize manually:
 
 #+begin_src bash :results none :exports code
-mu init --maildir=~/Mail \
-  --my-address=aner@zakobar.com \
-  --my-address=anerisgreat@gmail.com \
-  --my-address=anerz@post.bgu.ac.il \
-  --my-address=aner.zakobar@security.uno
+mu init --maildir=~/Maildir \
+  --my-address=me@example.com \
+  --my-address=me.too@example.org
 mu index
+#+end_src
+
+*** Accounts
+
+Contexts, bookmarks and maildir shortcuts are all built from
+=azos/mail/accounts=, which =suites/desktop/mail= generates from
+=accounts.email.accounts= into =~/.emacs.d/extra/azos-mail-accounts.el=: one
+plist per account, primary first. =:maildir= is the account's maildir
+relative to the Maildir root (e.g. ="/work"=); the folder keys are relative
+to it.
+
+#+begin_src emacs-lisp
+(defvar azos/mail/accounts nil
+  "Mail accounts as plists: :name :address :real-name :maildir :inbox :sent
+:drafts :trash :refile and, optionally, :spam :exclude :key.")
+
+(defvar azos/mail/maildir-base "~/Maildir"
+  "Root of all the accounts' maildirs.")
+
+(defun azos/mail/--folder (account key)
+  "ACCOUNT's folder under KEY (e.g. :inbox), as a mu maildir path."
+  (concat (plist-get account :maildir) "/" (plist-get account key)))
+
+(defun azos/mail/--maildir-term (folder)
+  "A mu query term matching FOLDER, quoted since names can contain spaces."
+  (format "maildir:%S" folder))
+
+(defun azos/mail/inbox-query ()
+  "mu query for the inboxes of all accounts."
+  (concat "("
+          (mapconcat (lambda (account)
+                       (azos/mail/--maildir-term (azos/mail/--folder account :inbox)))
+                     azos/mail/accounts " OR ")
+          ") AND NOT flag:trashed"))
+
+(defun azos/mail/--exclusions ()
+  "Query suffix leaving out every account's trash, spam and excluded folders."
+  (mapconcat
+   (lambda (folder) (concat " AND NOT " (azos/mail/--maildir-term folder)))
+   (mapcan (lambda (account)
+             (mapcar (lambda (f) (concat (plist-get account :maildir) "/" f))
+                     (delq nil (append (list (plist-get account :trash)
+                                             (plist-get account :spam))
+                                       (plist-get account :exclude)))))
+           azos/mail/accounts)
+   ""))
+
+(defun azos/mail/--in-maildir-p (prefix msg)
+  "Whether MSG lives under the maildir PREFIX."
+  (and msg (string-prefix-p prefix (mu4e-message-field msg :maildir))))
+
+;; This file has no lexical-binding, so :match-func can't be a closure.
+(defun azos/mail/--context (account)
+  "A mu4e context for ACCOUNT."
+  (make-mu4e-context
+   :name (plist-get account :name)
+   :match-func (apply-partially #'azos/mail/--in-maildir-p
+                                (concat (plist-get account :maildir) "/"))
+   :vars `((user-mail-address  . ,(plist-get account :address))
+           (user-full-name     . ,(plist-get account :real-name))
+           (mu4e-sent-folder   . ,(azos/mail/--folder account :sent))
+           (mu4e-drafts-folder . ,(azos/mail/--folder account :drafts))
+           (mu4e-trash-folder  . ,(azos/mail/--folder account :trash))
+           (mu4e-refile-folder . ,(azos/mail/--folder account :refile)))))
 #+end_src
 
 *** Config
@@ -58,74 +120,20 @@ mu index
   :config
   (evil-collection-mu4e-setup)
   (add-hook 'mu4e-view-mode-hook #'azos/default-variable-pitch)
-  (setq mu4e-contexts
-        (list
-         (make-mu4e-context
-          :name "Zakobar"
-          :match-func (lambda (msg)
-                        (when msg
-                          (string-prefix-p "/zakobar" (mu4e-message-field msg :maildir))))
-          :vars '((user-mail-address  . "aner@zakobar.com")
-                  (user-full-name     . "Aner Zakobar")
-                  (mu4e-sent-folder   . "/zakobar/Sent")
-                  (mu4e-drafts-folder . "/zakobar/Drafts")
-                  (mu4e-trash-folder  . "/zakobar/Trash")
-                  (mu4e-refile-folder . "/zakobar/Archive")))
-         (make-mu4e-context
-          :name "Gmail"
-          :match-func (lambda (msg)
-                        (when msg
-                          (string-prefix-p "/gmail" (mu4e-message-field msg :maildir))))
-          :vars '((user-mail-address  . "anerisgreat@gmail.com")
-                  (user-full-name     . "Aner Zakobar")
-                  (mu4e-sent-folder   . "/gmail/[Gmail]/Sent Mail")
-                  (mu4e-drafts-folder . "/gmail/[Gmail]/Drafts")
-                  (mu4e-trash-folder  . "/gmail/[Gmail]/Trash")
-                  (mu4e-refile-folder . "/gmail/[Gmail]/All Mail")))
-         (make-mu4e-context
-          :name "BGU"
-          :match-func (lambda (msg)
-                        (when msg
-                          (string-prefix-p "/bgu" (mu4e-message-field msg :maildir))))
-          :vars '((user-mail-address  . "anerz@post.bgu.ac.il")
-                  (user-full-name     . "Aner Zakobar")
-                  (mu4e-sent-folder   . "/bgu/[Gmail]/Sent Mail")
-                  (mu4e-drafts-folder . "/bgu/[Gmail]/Drafts")
-                  (mu4e-trash-folder  . "/bgu/[Gmail]/Bin")
-                  (mu4e-refile-folder . "/bgu/[Gmail]/All Mail")))
-         (make-mu4e-context
-          :name "SecurityUno"
-          :match-func (lambda (msg)
-                        (when msg
-                          (string-prefix-p "/securityuno" (mu4e-message-field msg :maildir))))
-          :vars '((user-mail-address  . "aner.zakobar@security.uno")
-                  (user-full-name     . "Aner Zakobar")
-                  (mu4e-sent-folder   . "/securityuno/[Gmail]/Sent Mail")
-                  (mu4e-drafts-folder . "/securityuno/[Gmail]/Drafts")
-                  (mu4e-trash-folder  . "/securityuno/[Gmail]/Trash")
-                  (mu4e-refile-folder . "/securityuno/[Gmail]/All Mail")))))
-  (let ((mu4e-trash-exclusions
-         (concat "AND NOT maildir:/gmail/[Gmail]/Trash"
-                 " AND NOT maildir:/gmail/[Gmail]/Spam"
-                 " AND NOT maildir:/gmail/[Gmail]/All\\ Mail"
-                 " AND NOT maildir:/bgu/[Gmail]/Bin"
-                 " AND NOT maildir:/bgu/[Gmail]/All\\ Mail"
-                 " AND NOT maildir:/securityuno/[Gmail]/Trash"
-                 " AND NOT maildir:/securityuno/[Gmail]/Spam"
-                 " AND NOT maildir:/securityuno/[Gmail]/All\\ Mail"
-                 " AND NOT maildir:/zakobar/Trash"
-                 " AND NOT maildir:/zakobar/Spam"
-                 " AND NOT maildir:\"/zakobar/Deleted Messages\"")))
+  (setq mu4e-contexts (mapcar #'azos/mail/--context azos/mail/accounts))
+  (let ((exclusions (azos/mail/--exclusions)))
     (setq mu4e-bookmarks
-          `((:name "Inbox"  :query "(maildir:/zakobar/INBOX OR maildir:/gmail/INBOX OR maildir:/bgu/INBOX OR maildir:/securityuno/INBOX) AND NOT flag:trashed" :key ?i)
-            (:name "Unread" :query ,(concat "flag:unread AND NOT flag:trashed " mu4e-trash-exclusions) :key ?u)
-            (:name "Today"  :query ,(concat "date:today..now AND NOT flag:trashed " mu4e-trash-exclusions) :key ?t)
-            (:name "Week"   :query ,(concat "date:7d..now AND NOT flag:trashed " mu4e-trash-exclusions) :key ?w))))
+          `(,@(when azos/mail/accounts
+                `((:name "Inbox" :query ,(azos/mail/inbox-query) :key ?i)))
+            (:name "Unread" :query ,(concat "flag:unread AND NOT flag:trashed" exclusions) :key ?u)
+            (:name "Today"  :query ,(concat "date:today..now AND NOT flag:trashed" exclusions) :key ?t)
+            (:name "Week"   :query ,(concat "date:7d..now AND NOT flag:trashed" exclusions) :key ?w))))
   (setq mu4e-maildir-shortcuts
-        '((:maildir "/zakobar/Inbox" :key ?z)
-          (:maildir "/gmail/Inbox"   :key ?g)
-          (:maildir "/bgu/Inbox"     :key ?b)
-          (:maildir "/securityuno/Inbox" :key ?s)))
+        (mapcan (lambda (account)
+                  (when-let ((key (plist-get account :key)))
+                    (list (list :maildir (azos/mail/--folder account :inbox)
+                                :key (string-to-char key)))))
+                azos/mail/accounts))
   (defun azos/mail/open ()
     "Open mu4e in its dedicated \"mail\" tab."
     (interactive)
