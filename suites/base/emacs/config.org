@@ -274,6 +274,10 @@ The copy command below goes through the backend-agnostic
 =azos-password-list= / =azos-password-get= scripts the same module
 installs, so it works the same for either backend.
 
+The helpers run asynchronously while Emacs keeps serving events. A
+blocking =call-process= deadlocks when gpg needs a PIN: pinentry-emacs
+asks this Emacs, which is stuck waiting for the helper.
+
 #+begin_src emacs-lisp
 (defcustom azos/password/clear-seconds 45
   "Seconds after which `azos/password/copy' clears the copied secret."
@@ -286,11 +290,28 @@ installs, so it works the same for either backend.
   "Run PROGRAM with ARGS, returning trimmed stdout or signalling an error."
   (unless (executable-find program)
     (user-error "%s not found; is azos.password-manager configured?" program))
-  (with-temp-buffer
-    (let ((status (apply #'call-process program nil (list t nil) nil args)))
-      (unless (eq status 0)
-        (user-error "%s failed (exit %s)" program status))
-      (string-trim-right (buffer-string)))))
+  (let* ((out (generate-new-buffer " *azos-password*"))
+         (err (generate-new-buffer " *azos-password-stderr*"))
+         (proc (make-process :name program
+                             :buffer out
+                             :stderr err
+                             :command (cons program args)
+                             :connection-type 'pipe
+                             :noquery t
+                             :sentinel (lambda (p _event) (process-put p 'done t)))))
+    (unwind-protect
+        (progn
+          ;; Sentinels run only after the process's output is read.
+          (while (not (process-get proc 'done))
+            (accept-process-output nil 0.05))
+          (unless (eq (process-exit-status proc) 0)
+            (user-error "%s failed (exit %s)" program (process-exit-status proc)))
+          (with-current-buffer out
+            (string-trim-right (buffer-string))))
+      (delete-process proc)
+      (let ((kill-buffer-query-functions nil))
+        (kill-buffer out)
+        (kill-buffer err)))))
 
 (defun azos/password/copy (entry &optional field)
   "Copy FIELD (default password) of password-manager ENTRY to the kill ring.
