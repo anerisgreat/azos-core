@@ -44,6 +44,8 @@
       - No tables, code blocks, long lists, file paths, URLs or symbols that
         don't read well aloud. Code blocks are skipped when read.
       - Do the work as thoroughly as usual; only the reply is condensed.
+      - Interim replies, status updates in the middle of doing work, should
+        be shorter still, only up to about 10 seconds of speech.
     '';
     client = pkgs.writers.writePython3Bin "azos-speak" {flakeIgnore = ["E501"];} (
       builtins.replaceStrings ["@styleFile@" "@systemctl@"] ["${style}" "${pkgs.systemd}/bin/systemctl"]
