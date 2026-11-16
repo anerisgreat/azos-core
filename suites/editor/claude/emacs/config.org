@@ -1,0 +1,250 @@
+#+title: Emacs: Claude Code
+#+property: header-args :results silent
+
+claude-code-ide runs the real Claude Code CLI in a vterm buffer, connected
+to Emacs over MCP (diagnostics, xref, ediff diffs, selection), so the CLI's
+own menus, slash commands and =/voice= work as they do in a terminal. It
+takes over the =M-o a= agent keys and the tab-bar squares from agent-shell;
+agent-shell itself stays available through =M-x agent-shell=.
+
+* Header
+
+#+begin_src emacs-lisp
+;;; azos-emacs-claude.el --- Claude Code through claude-code-ide -*- lexical-binding: t; -*-
+(require 'azos-emacs-base)
+(require 'azos-emacs-editor)
+(require 'filenotify)
+(require 'json)
+
+;; Without this the `let' in `azos/claude/--create-session' would be
+;; lexical under lexical-binding, and --settings silently never passed.
+(defvar claude-code-ide-cli-extra-flags)
+(declare-function claude-code-ide-emacs-tools-setup "claude-code-ide-emacs-tools")
+(declare-function claude-code-ide--display-buffer-in-side-window "claude-code-ide")
+(declare-function claude-code-ide--get-working-directory "claude-code-ide")
+(declare-function claude-code-ide-mcp--mru-session "claude-code-ide-mcp")
+(declare-function claude-code-ide-mcp-session-buffer "claude-code-ide-mcp")
+#+end_src
+
+* claude-code-ide
+
+It is built with =trivialBuild=, which generates no autoloads.
+
+#+begin_src emacs-lisp
+(autoload 'claude-code-ide-menu "claude-code-ide-transient" nil t)
+(autoload 'claude-code-ide "claude-code-ide" nil t)
+
+(with-eval-after-load 'claude-code-ide
+  (claude-code-ide-emacs-tools-setup))
+#+end_src
+
+* Session state
+
+Every session claude-code-ide starts gets =--settings= with hooks that copy
+each hook's JSON to =<state dir>/<port>.hook=, where the port is the
+session's =CLAUDE_CODE_SSE_PORT=. Hooks given with =--settings= run in
+addition to the ones in =~/.claude/settings.json=, so the agent-memory hooks
+still fire. Writes go through ="$f.$$"= and =mv=, so Emacs never reads a
+half-written file. A file watch maps the hook event to a state:
+
+- =busy=: a prompt was submitted, or a tool is running
+- =blocked=: a permission prompt is showing, or the turn failed with an API error
+- =ready=: the turn finished
+
+No hook fires when a turn is interrupted with Escape, so the session stays
+=busy= until the next prompt.
+
+The same settings give the CLI a one-line status line: model, effort and
+context use (needs =jq=, which the Nix module installs).
+
+(Testing this in =emacs --batch=: file-notify events are only delivered
+while waiting in =read-event=; plain =accept-process-output= won't.)
+
+#+begin_src emacs-lisp
+(defvar azos/claude/state-dir
+  (expand-file-name "azos-claude-ide"
+                    (or (getenv "XDG_RUNTIME_DIR") temporary-file-directory))
+  "Where Claude Code hooks leave per-session state for Emacs.")
+
+(defvar azos/claude/--buffers (make-hash-table :test #'equal)
+  "Session MCP port (a string) -> its Claude Code buffer.")
+
+(defvar azos/claude/--watch nil)
+
+(defvar-local azos/claude/--status 'ready
+  "This session's state: `busy', `blocked' or `ready'.")
+
+(defconst azos/claude/--hook-events
+  '(SessionStart UserPromptSubmit PreToolUse PostToolUse
+    PermissionRequest Notification Stop StopFailure))
+
+(defconst azos/claude/--status-line
+  (concat "jq -r '[.model.display_name, .effort.level,"
+          " (.context_window.used_percentage"
+          " | if . then \"ctx \\(floor)%\" else empty end)]"
+          " | map(select(.)) | join(\" · \")'")
+  "statusLine command: model · effort · ctx N%.")
+
+(defun azos/claude/--settings-file ()
+  "Write the per-session Claude Code settings and return their path."
+  (let* ((file (expand-file-name "settings.json" azos/claude/state-dir))
+         (write (format "f=%s/$CLAUDE_CODE_SSE_PORT.hook; cat > \"$f.$$\" && mv \"$f.$$\" \"$f\""
+                        azos/claude/state-dir))
+         (hook `[((hooks . [((type . "command") (command . ,write))]))])
+         ;; The · in the status line gets mangled otherwise.
+         (coding-system-for-write 'utf-8))
+    (make-directory azos/claude/state-dir t)
+    (with-temp-file file
+      (insert (json-encode
+               `((statusLine . ((type . "command")
+                                (command . ,azos/claude/--status-line)))
+                 (hooks . ,(mapcar (lambda (event) (cons event hook))
+                                   azos/claude/--hook-events))))))
+    file))
+
+(defun azos/claude/--status-of (data current)
+  "The state after hook DATA, given the CURRENT state."
+  (pcase (alist-get 'hook_event_name data)
+    ((or "UserPromptSubmit" "PreToolUse" "PostToolUse") 'busy)
+    ((or "PermissionRequest" "StopFailure") 'blocked)
+    ("Notification" (if (equal (alist-get 'notification_type data) "permission_prompt")
+                        'blocked
+                      current))
+    ((or "Stop" "SessionStart") 'ready)
+    (_ current)))
+
+(defun azos/claude/--on-change (event)
+  (pcase-let* ((`(,_ ,action ,file . ,rest) event)
+               (file (if (eq action 'renamed) (car rest) file)))
+    (when (and (memq action '(created changed renamed))
+               (string-match "/\\([0-9]+\\)\\.hook\\'" file))
+      (let ((buffer (gethash (match-string 1 file) azos/claude/--buffers))
+            (data (ignore-errors
+                    (with-temp-buffer
+                      (insert-file-contents file)
+                      (json-parse-buffer :object-type 'alist :null-object nil)))))
+        (when (and data (buffer-live-p buffer))
+          (with-current-buffer buffer
+            (setq azos/claude/--status
+                  (azos/claude/--status-of data azos/claude/--status)))
+          (force-mode-line-update t))))))
+
+(defun azos/claude/--forget (port)
+  (remhash port azos/claude/--buffers)
+  (ignore-errors (delete-file (expand-file-name (concat port ".hook")
+                                                azos/claude/state-dir))))
+
+(defun azos/claude/--create-session (orig buffer-name working-dir port &rest args)
+  "Start the session with the state hooks and track its buffer."
+  (let* ((claude-code-ide-cli-extra-flags
+          (string-trim (concat claude-code-ide-cli-extra-flags " --settings "
+                               (shell-quote-argument (azos/claude/--settings-file)))))
+         (result (apply orig buffer-name working-dir port args))
+         (key (number-to-string port)))
+    (unless (and azos/claude/--watch (file-notify-valid-p azos/claude/--watch))
+      (setq azos/claude/--watch
+            (file-notify-add-watch azos/claude/state-dir '(change)
+                                   #'azos/claude/--on-change)))
+    (puthash key (car result) azos/claude/--buffers)
+    (with-current-buffer (car result)
+      (add-hook 'kill-buffer-hook (lambda () (azos/claude/--forget key)) nil t))
+    result))
+
+(with-eval-after-load 'claude-code-ide
+  (advice-add 'claude-code-ide--create-terminal-session :around
+              #'azos/claude/--create-session))
+
+(defun azos/claude/buffers ()
+  "Live Claude Code session buffers."
+  (seq-filter #'buffer-live-p (hash-table-values azos/claude/--buffers)))
+#+end_src
+
+* Tabs and switching
+
+Like agent-shell sessions, a Claude Code session lives in its project's tab
+(=azos/agent-shell/tab-name=: the project's name, or =agents=). Inside the
+tab, claude-code-ide keeps managing its own side window, which its ediff
+and toggle handling expect.
+
+#+begin_src emacs-lisp
+(defun azos/claude/display (buffer)
+  "Go to BUFFER's project tab and select its Claude Code window."
+  (require 'claude-code-ide)
+  (require 'agent-shell)
+  (azos/tab-bar/open-singleton-tab
+   (azos/agent-shell/tab-name buffer)
+   (lambda ()
+     (select-window (or (get-buffer-window buffer 0)
+                        (claude-code-ide--display-buffer-in-side-window buffer))))))
+
+(defun azos/claude/start (&optional new)
+  "Jump to this project's most recent Claude Code session, or start one.
+With a prefix argument NEW, always start a new session."
+  (interactive "P")
+  (require 'claude-code-ide)
+  (require 'agent-shell)
+  (let* ((dir (claude-code-ide--get-working-directory))
+         (session (and (not new) (claude-code-ide-mcp--mru-session dir)))
+         (buffer (and session (claude-code-ide-mcp-session-buffer session))))
+    (if (buffer-live-p buffer)
+        (azos/claude/display buffer)
+      (azos/tab-bar/open-singleton-tab
+       (azos/agent-shell/tab-name (current-buffer))
+       (lambda ()
+         (let ((default-directory dir))
+           (claude-code-ide)))))))
+
+(defun azos/claude/switch-session ()
+  "Pick a Claude Code session and jump to it."
+  (interactive)
+  (let ((candidates
+         (mapcar (lambda (buffer)
+                   (cons (propertize (buffer-name buffer)
+                                     'face (azos/agent-shell/status-face
+                                            (buffer-local-value 'azos/claude/--status buffer)))
+                         buffer))
+                 (azos/claude/buffers))))
+    (unless candidates
+      (user-error "No Claude Code sessions"))
+    (azos/claude/display
+     (cdr (assoc (completing-read "Claude Code session: " candidates nil t)
+                 candidates)))))
+
+(define-key azos/llm-keymap (kbd "s") #'azos/claude/start)
+(define-key azos/llm-keymap (kbd "S") #'azos/claude/switch-session)
+(define-key azos/llm-keymap (kbd "i") #'claude-code-ide-menu)
+#+end_src
+
+* Tab bar
+
+One square per Claude Code session, in agent-shell's status colors, each
+clickable. They replace the agent-shell squares.
+
+#+begin_src emacs-lisp
+(defun azos/tab-bar/claude-status-string ()
+  "A row of colored squares, one per live Claude Code session."
+  (mapconcat
+   (lambda (buffer)
+     (let ((status (buffer-local-value 'azos/claude/--status buffer)))
+       (propertize "■"
+                   'face (azos/agent-shell/status-face status)
+                   'local-map (let ((map (make-sparse-keymap)))
+                                (define-key map [tab-bar mouse-1]
+                                  (lambda ()
+                                    (interactive)
+                                    (azos/claude/display buffer)))
+                                map)
+                   'help-echo (format "%s (%s)" (buffer-name buffer) status))))
+   (azos/claude/buffers)
+   ""))
+
+(setq azos/tab-bar/right-group
+      (delq 'azos/tab-bar/agent-shell-status-string azos/tab-bar/right-group))
+(cl-pushnew 'azos/tab-bar/claude-status-string azos/tab-bar/right-group)
+#+end_src
+
+* Provide
+
+#+begin_src emacs-lisp
+(provide 'azos-emacs-claude)
+#+end_src
