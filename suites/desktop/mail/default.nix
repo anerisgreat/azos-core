@@ -122,6 +122,12 @@
       default = false;
       type = lib.types.bool;
     };
+    options.azos.mail.tabBarUnreadCount = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      example = true;
+      description = "Show the number of unread messages across all inboxes in the Emacs tab bar.";
+    };
     options.azos.mail.presenceCheckCommand = lib.mkOption {
       type = lib.types.nullOr lib.types.str;
       default = null;
@@ -144,7 +150,11 @@
         (setq azos/mail/maildir-base ${elStr maildirBase})
         (setq azos/mail/accounts
               '(${lib.concatMapStringsSep "\n        " elPlist accounts}))
-      '';
+
+        ${lib.optionalString cfg.tabBarUnreadCount ''
+          (with-eval-after-load 'azos-emacs-desktop
+            (azos/mail/enable-tab-display))
+        ''}'';
       programs = {
         mu.enable = true;
         mbsync.enable = true;

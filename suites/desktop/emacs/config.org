@@ -177,6 +177,120 @@ Thanks to Dan of Stackoverflow.
       (mml-secure-message-sign))))
 #+end_src
 
+*** Send without deadlocking on msmtp
+
+=sendmail-send-it= runs msmtp with the blocking =call-process-region=. If
+msmtp's passwordeval calls back into this Emacs (a password helper asking
+the running Emacs via emacsclient, or gpg's pinentry served by
+pinentry.el), Emacs waits for msmtp while msmtp waits for Emacs, and
+=C-c C-c= hangs forever. Run the send process asynchronously and wait while
+still serving events. Harmless otherwise.
+
+#+begin_src emacs-lisp
+(require 'cl-lib)
+
+(defun azos/mail--call-process-region (start end program &optional delete buffer _display &rest args)
+  "Stand-in for `call-process-region' that keeps Emacs processing events."
+  (let* ((text (buffer-substring-no-properties start end))
+         (out (cond ((eq buffer t) (current-buffer))
+                    ((consp buffer) (car buffer))
+                    (t buffer)))
+         (out (and out (not (eq out 0)) (get-buffer-create out)))
+         (proc (make-process :name "azos-sendmail"
+                             :buffer out
+                             :command (cons program args)
+                             :connection-type 'pipe
+                             :noquery t
+                             :sentinel #'ignore)))
+    (when delete
+      (delete-region start end))
+    (process-send-string proc text)
+    (process-send-eof proc)
+    (while (process-live-p proc)
+      (accept-process-output nil 0.05))
+    (process-exit-status proc)))
+
+(defun azos/mail--async-send (orig &rest args)
+  "Call ORIG with ARGS, with `call-process-region' made non-blocking."
+  (cl-letf (((symbol-function 'call-process-region)
+             #'azos/mail--call-process-region))
+    (apply orig args)))
+#+end_src
+
+message-mode (=C-c C-c=) goes through =message-send-mail-with-sendmail= when
+=send-mail-function= is =sendmail-send-it=; cover both entry points.
+
+#+begin_src emacs-lisp
+(advice-add 'sendmail-send-it :around #'azos/mail--async-send)
+(advice-add 'message-send-mail-with-sendmail :around #'azos/mail--async-send)
+#+end_src
+
+*** Unread count in the tab bar
+
+=✉ N= on the tab bar's right group, clickable to open the Inbox bookmark in
+mu4e. Opt-in: =azos.mail.tabBarUnreadCount= makes the generated
+=azos-mail-accounts.el= call =azos/mail/enable-tab-display=.
+
+It counts the Maildir files of every account's inbox directly rather than
+asking mu: the mbsync timer doesn't re-index mu, so its database lags until
+mu4e next updates. A message is unread if it is still in =new/=, or in
+=cur/= without the =S= (seen) flag; =T= (trashed) ones are skipped.
+
+#+begin_src emacs-lisp
+(defvar azos/mail/status-string nil "Holds the unread-mail tab-bar string.")
+
+(defun azos/mail/--unread-in (dir)
+  "Number of unread, untrashed messages in the maildir DIR."
+  (+ (length (directory-files (expand-file-name "new" dir) nil "\\`[^.]" t))
+     (cl-count-if
+      (lambda (f)
+        (let ((flags (and (string-match ":2,\\([A-Za-z]*\\)\\'" f)
+                          (match-string 1 f))))
+          (not (and flags (or (string-search "S" flags)
+                              (string-search "T" flags))))))
+      (directory-files (expand-file-name "cur" dir) nil "\\`[^.]" t))))
+
+(defun azos/mail/--unread-count ()
+  "Unread messages across the inboxes of `azos/mail/accounts'."
+  (apply #'+ (mapcar (lambda (account)
+                       (azos/mail/--unread-in
+                        (concat (expand-file-name azos/mail/maildir-base)
+                                (azos/mail/--folder account :inbox))))
+                     azos/mail/accounts)))
+
+(defun azos/mail/open-inbox ()
+  "Show the inboxes of all accounts in mu4e."
+  (interactive)
+  (require 'mu4e)
+  (mu4e-search (azos/mail/inbox-query)))
+
+(defun azos/mail/set-status-string ()
+  "Recount unread mail for the tab bar."
+  (let ((n (condition-case nil (azos/mail/--unread-count) (error nil))))
+    (setq azos/mail/status-string
+          (and n
+               (concat
+                "✉ "
+                (propertize (number-to-string n)
+                            'face (list :foreground (if (> n 0) "red3" "green3")
+                                        :background "LightYellow3"
+                                        :box (list :color "DarkSlateGrey"))
+                            'local-map (let ((map (make-sparse-keymap)))
+                                         (define-key map [tab-bar mouse-1]
+                                                     #'azos/mail/open-inbox)
+                                         map)
+                            'help-echo "mouse-1: open inbox"))))))
+
+(defun azos/mail/get-status-string ()
+  "Get the unread-mail tab-bar string."
+  (or azos/mail/status-string ""))
+
+(defun azos/mail/enable-tab-display ()
+  "Enables unread-mail display in tab bar."
+  (cl-pushnew 'azos/mail/get-status-string azos/tab-bar/right-group)
+  (cl-pushnew 'azos/mail/set-status-string azos/tab-bar/right-update-group))
+#+end_src
+
 ** Elfeed
 
 MPV from https://www.reddit.com/r/emacs/comments/7usz5q/youtube_subscriptions_using_elfeed_mpv_no_browser/
