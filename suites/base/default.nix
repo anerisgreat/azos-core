@@ -29,6 +29,7 @@
         wget
         curl
         liberation_ttf
+        dejavu_fonts
         font-awesome
         noto-fonts
         noto-fonts-cjk-sans

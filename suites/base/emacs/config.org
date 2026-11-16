@@ -632,6 +632,10 @@ Setting font size to 10. The value to place is font-size * 10
 
 Font size 12 for variable pitch.
 
+The dingbat stars =✢✳✶✻✽= aren't in Liberation Mono or Source Code Pro,
+so Emacs falls back to Unifont, which is much wider. DejaVu Sans Mono has
+them at the same cell width (though slightly taller).
+
 The function =font-candidate= is from https://www.gnu.org/software/emacs/manual/html_mono/cl.html.
 
 #+begin_src emacs-lisp
@@ -645,6 +649,10 @@ The function =font-candidate= is from https://www.gnu.org/software/emacs/manual/
     (if fixed-font (progn
         (set-face-attribute 'default nil :font fixed-font)
         (set-face-attribute 'fixed-pitch nil :font fixed-font))))
+
+(let ((dingbat-font (azos/font-candidate "DejaVu Sans Mono")))
+  (when dingbat-font
+    (set-fontset-font t '(#x2722 . #x273d) dingbat-font)))
 
 (set-face-attribute 'default nil :height 100)
 (set-face-attribute 'variable-pitch nil
