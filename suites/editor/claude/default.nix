@@ -58,6 +58,16 @@
       };
     };
 
+    options.azos.claude.ide.sideWindow = lib.mkOption {
+      default = false;
+      example = true;
+      type = lib.types.bool;
+      description = ''
+        Show Claude Code sessions in claude-code-ide's dedicated side window.
+        Off, they open in ordinary windows like other buffers.
+      '';
+    };
+
     config = lib.mkMerge [
       (lib.mkIf cfg.enable {
         home.packages = with pkgs; [claude-code claude-agent-acp];
@@ -102,6 +112,7 @@
           ]
           ++ lib.optional cfg.agentShellDefault "(setq agent-shell-preferred-agent-config 'claude-code)"
           ++ lib.optional cfg.speak.enable "(setq azos/claude/speak-enabled t)"
+          ++ lib.optional (!cfg.ide.sideWindow) "(setq claude-code-ide-use-side-window nil)"
           ++ [""]);
       })
 

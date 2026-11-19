@@ -242,8 +242,9 @@ BUFFER defaults to the current session buffer, else the first session."
 
 Like agent-shell sessions, a Claude Code session lives in its project's tab
 (=azos/agent-shell/tab-name=: the project's name, or =agents=). Inside the
-tab, claude-code-ide keeps managing its own side window, which its ediff
-and toggle handling expect.
+tab, claude-code-ide manages its own side window, which its ediff and
+toggle handling expect, unless =azos.claude.ide.sideWindow= is off; then
+sessions show in ordinary windows.
 
 #+begin_src emacs-lisp
 (defun azos/claude/display (buffer)
