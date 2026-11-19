@@ -20,7 +20,9 @@ agent-shell itself stays available through =M-x agent-shell=.
 ;; lexical under lexical-binding, and --settings silently never passed.
 ;; Same for `vterm-mode-hook'.
 (defvar claude-code-ide-cli-extra-flags)
+(defvar claude-code-ide-prevent-reflow-glitch)
 (defvar vterm-mode-hook)
+(declare-function vterm-send-key "vterm")
 (declare-function claude-code-ide-emacs-tools-setup "claude-code-ide-emacs-tools")
 (declare-function claude-code-ide--display-buffer-in-side-window "claude-code-ide")
 (declare-function claude-code-ide--get-working-directory "claude-code-ide")
@@ -50,7 +52,11 @@ still fire. Writes go through ="$f.$$"= and =mv=, so Emacs never reads a
 half-written file. Session buffers show the thinking spinner's
 =✢✳✶✻✽= as =+*×☼¤=: Liberation Mono has no glyph for the stars, and any
 fallback font that does is taller, so the spinner line changed height on
-every frame. The session also starts without
+every frame. The few other glyphs Claude Code draws that DejaVu Sans Mono
+(the base config's monospace fallback for symbols) lacks, =⎿⏺⎯⏸⧉=, are
+shown as lookalikes it has, for the same reason: a glyph from a wider font
+makes its line wider and the edges of boxes and diffs stop lining up.
+After a resize the session repaints (see Rendering below). The session also starts without
 =with-editor-export-editor= on =vterm-mode-hook=: claude-code-ide runs the
 CLI as the vterm's shell, so the hook's =export EDITOR=...= and =clear=
 lines would be typed into Claude's prompt and sent as messages. A file watch
@@ -147,10 +153,15 @@ while waiting in =read-event=; plain =accept-process-output= won't.)
   '((?✢ . ?+) (?✳ . ?*) (?✶ . ?×) (?✻ . ?☼) (?✽ . ?¤))
   "The spinner's stars, and the glyphs the default font has to show instead.")
 
-(defun azos/claude/--fix-spinner ()
-  "Show the spinner in glyphs of the default font, keeping vterm's table."
+(defvar azos/claude/--substitute-glyphs
+  '((?⎿ . ?└) (?⏺ . ?●) (?⎯ . ?─) (?⏸ . ?‖) (?⧉ . ?❐))
+  "Glyphs no monospace font here has, and the lookalikes to show instead.")
+
+(defun azos/claude/--fix-glyphs ()
+  "Show the spinner and substitutes as above, keeping vterm's table."
   (let ((table (or buffer-display-table (make-display-table))))
-    (pcase-dolist (`(,from . ,to) azos/claude/--spinner-glyphs)
+    (pcase-dolist (`(,from . ,to) (append azos/claude/--spinner-glyphs
+                                          azos/claude/--substitute-glyphs))
       (aset table from (vector to)))
     (setq buffer-display-table table)))
 
@@ -169,7 +180,8 @@ while waiting in =read-event=; plain =accept-process-output= won't.)
                                    #'azos/claude/--on-change)))
     (puthash key (car result) azos/claude/--buffers)
     (with-current-buffer (car result)
-      (azos/claude/--fix-spinner)
+      (azos/claude/--fix-glyphs)
+      (add-hook 'window-size-change-functions #'azos/claude/--on-resize nil t)
       (add-hook 'kill-buffer-hook (lambda () (azos/claude/--forget key)) nil t))
     result))
 
@@ -180,6 +192,49 @@ while waiting in =read-event=; plain =accept-process-output= won't.)
 (defun azos/claude/buffers ()
   "Live Claude Code session buffers."
   (seq-filter #'buffer-live-p (hash-table-values azos/claude/--buffers)))
+#+end_src
+
+* Rendering
+
+After a resize, vterm re-wraps the old screen and Claude Code repaints
+over it, which can leave stale fragments behind. Ctrl+L makes Claude Code
+clear and repaint the whole screen (the prompt being typed survives), so
+it's sent 0.3 s after a session's window stops changing size, and
+=M-o a r= sends it by hand. Not in =vterm-copy-mode=, where the key would
+leave copy mode instead.
+
+claude-code-ide also keeps height-only resizes from reaching the terminal
+(=claude-code-ide-prevent-reflow-glitch=, a workaround for an old Claude
+Code scrolling bug). Claude Code now draws only the visible screen, so the
+workaround just leaves it drawing at the wrong height. With the variable
+nil, claude-code-ide never installs its reflow-filter advice.
+
+#+begin_src emacs-lisp
+(setq claude-code-ide-prevent-reflow-glitch nil)
+
+(defvar-local azos/claude/--redraw-timer nil)
+
+(defun azos/claude/redraw (&optional buffer)
+  "Make the Claude Code session in BUFFER repaint.
+BUFFER defaults to the current session buffer, else the first session."
+  (interactive)
+  (let ((buffer (or buffer
+                    (car (memq (current-buffer) (azos/claude/buffers)))
+                    (car (azos/claude/buffers)))))
+    (when (and (buffer-live-p buffer) (get-buffer-process buffer))
+      (with-current-buffer buffer
+        (unless (bound-and-true-p vterm-copy-mode)
+          (vterm-send-key "l" nil nil t))))))
+
+(defun azos/claude/--on-resize (window)
+  "Redraw WINDOW's session shortly after its size stops changing."
+  (with-current-buffer (window-buffer window)
+    (when (timerp azos/claude/--redraw-timer)
+      (cancel-timer azos/claude/--redraw-timer))
+    (setq azos/claude/--redraw-timer
+          (run-with-timer 0.3 nil #'azos/claude/redraw (current-buffer)))))
+
+(define-key azos/llm-keymap (kbd "r") #'azos/claude/redraw)
 #+end_src
 
 * Tabs and switching

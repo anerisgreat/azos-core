@@ -653,9 +653,14 @@ Setting font size to 10. The value to place is font-size * 10
 
 Font size 12 for variable pitch.
 
-The dingbat stars =✢✳✶✻✽= aren't in Liberation Mono or Source Code Pro,
-so Emacs falls back to Unifont, which is much wider. DejaVu Sans Mono has
-them at the same cell width (though slightly taller).
+Symbols the default font lacks (arrows, box drawing, shapes, dingbats like
+the stars =✢✳✶✻✽=) otherwise come from whichever fallback font has them, at
+that font's own width: Unifont is much wider, and =⎿= or =❯= from other
+fonts are wider too. Terminal programs such as Claude Code assume one cell
+per character, so a line containing one comes out wider than its
+neighbours and box and diff edges stop lining up. DejaVu Sans Mono has the
+same cell width as Liberation Mono at this size and covers nearly all of
+these, so it goes first for those blocks (some glyphs are slightly taller).
 
 The function =font-candidate= is from https://www.gnu.org/software/emacs/manual/html_mono/cl.html.
 
@@ -671,9 +676,20 @@ The function =font-candidate= is from https://www.gnu.org/software/emacs/manual/
         (set-face-attribute 'default nil :font fixed-font)
         (set-face-attribute 'fixed-pitch nil :font fixed-font))))
 
-(let ((dingbat-font (azos/font-candidate "DejaVu Sans Mono")))
-  (when dingbat-font
-    (set-fontset-font t '(#x2722 . #x273d) dingbat-font)))
+(defconst azos/symbol-font-ranges
+  '((#x2016 . #x2016)                   ; ‖
+    (#x2190 . #x21FF)                   ; arrows
+    (#x2300 . #x23FF)                   ; misc technical
+    (#x2500 . #x25FF)                   ; box drawing, blocks, shapes
+    (#x2600 . #x27BF)                   ; misc symbols, dingbats
+    (#x2900 . #x297F)                   ; supplemental arrows
+    (#x2B00 . #x2BFF))                  ; misc symbols and arrows
+  "Symbol blocks drawn with DejaVu Sans Mono, so they stay one cell wide.")
+
+(let ((symbol-font (azos/font-candidate "DejaVu Sans Mono")))
+  (when symbol-font
+    (dolist (range azos/symbol-font-ranges)
+      (set-fontset-font t range symbol-font nil 'prepend))))
 
 (set-face-attribute 'default nil :height 100)
 (set-face-attribute 'variable-pitch nil
