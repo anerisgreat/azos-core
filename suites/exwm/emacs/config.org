@@ -449,6 +449,63 @@ In the event =xbacklight= doesn't work, the following command can be run:
 xrandr --output eDP1 --brightness 0.5
 #+end_example
 
+** Claude dictation key
+
+=azos.headphones.claudeDictation= turns a media key (default
+=<XF86AudioNext>=: swipe forward on the Sony WH-1000XM6 touch pad) into a
+Space tap in the Claude Code session (=azos/claude/dictate=, editor
+suite), which starts dictation when Claude's voice mode is =tap= (it
+auto-sends transcripts of three words or more, and stops by itself after
+15 seconds of silence). Without a session the key does what it did before.
+
+Recording switches the headset to HFP, where swipes no longer arrive at
+all; a double tap sends a call hang-up instead, which the
+=azos-headphones-hangup-watch= service (=headphones/default.nix=) turns
+into =(azos/claude/dictate #'ignore)=. So: swipe forward to start, double
+tap to stop.
+
+The generated =~/.emacs.d/extra/azos-headphones.el= calls
+=azos/headphones/enable-claude-dictation=. That loads after this file, by
+which time =azos/exwm/load-hook= has already run, so the key is bound
+right away when EXWM is loaded, and also late in the hook (depth 90, after
+the media keys above) for a later EXWM start.
+
+#+begin_src emacs-lisp
+(declare-function azos/claude/dictate "azos-emacs-claude")
+
+(defvar azos/headphones/dictation-key nil
+  "Key that dictates to Claude Code, as a `kbd' string.")
+
+(defvar azos/headphones/--dictation-fallback nil
+  "The dictation key's command before it was rebound.")
+
+(defun azos/headphones/--dictation-fallback ()
+  (when (commandp azos/headphones/--dictation-fallback)
+    (call-interactively azos/headphones/--dictation-fallback)))
+
+(defun azos/headphones/claude-dictate ()
+  "Dictate to Claude Code, or run the key's previous command without a session."
+  (interactive)
+  (azos/claude/dictate #'azos/headphones/--dictation-fallback))
+
+(defun azos/headphones/--bind-dictation ()
+  (let* ((key (kbd azos/headphones/dictation-key))
+         (previous (lookup-key (current-global-map) key)))
+    (unless (eq previous 'azos/headphones/claude-dictate)
+      (setq azos/headphones/--dictation-fallback previous)
+      (exwm-input-set-key key #'azos/headphones/claude-dictate)
+      ;; Once EXWM runs, a new global key also has to be grabbed.
+      (when (bound-and-true-p exwm--connection)
+        (exwm-input--update-global-prefix-keys)))))
+
+(defun azos/headphones/enable-claude-dictation (key)
+  "Make KEY (a `kbd' string) dictate to Claude Code."
+  (setq azos/headphones/dictation-key key)
+  (add-hook 'azos/exwm/load-hook #'azos/headphones/--bind-dictation 90)
+  (when (featurep 'exwm)
+    (azos/headphones/--bind-dictation)))
+#+end_src
+
 ** Dedicated processes
 
 We'd want to be able to quickly map processes (Spotify, etc.) to

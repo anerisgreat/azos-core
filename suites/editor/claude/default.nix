@@ -24,6 +24,16 @@
         type = lib.types.bool;
         description = "Make agent-shell start Claude Code instead of asking which agent to use.";
       };
+      voice.enable = lib.mkOption {
+        default = false;
+        example = true;
+        type = lib.types.bool;
+        description = ''
+          Turn on Claude Code's voice dictation in tap mode (Space starts and
+          stops recording) in ~/.claude/settings.json, rather than with
+          /voice. Only those keys are set; turning this off leaves them.
+        '';
+      };
       ide.enable = lib.mkOption {
         default = cfg.enable;
         defaultText = lib.literalExpression "config.azos.claude.enable";
@@ -41,6 +51,18 @@
         home.packages = with pkgs; [claude-code claude-agent-acp];
         azos.agent-memory.backends.claude.enable = lib.mkDefault true;
         azos.agent-skills.backends.claude.enable = lib.mkDefault true;
+      })
+
+      (lib.mkIf (cfg.enable && cfg.voice.enable) {
+        # /voice writes both the voice object and the older voiceEnabled
+        # (Claude Code reads voice.enabled first), so set both the same way.
+        home.activation.claudeVoice = lib.hm.dag.entryAfter ["writeBoundary"] ''
+          SETTINGS_JSON="$HOME/.claude/settings.json"
+          [ -f "$SETTINGS_JSON" ] || echo '{}' > "$SETTINGS_JSON"
+          tmp=$(mktemp)
+          ${pkgs.jq}/bin/jq '.voice.enabled = true | .voice.mode = "tap" | .voiceEnabled = true' \
+            "$SETTINGS_JSON" > "$tmp" && mv "$tmp" "$SETTINGS_JSON"
+        '';
       })
 
       (lib.mkIf (cfg.enable && config.azos.emacs.enable) {

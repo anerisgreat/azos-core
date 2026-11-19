@@ -23,6 +23,7 @@ agent-shell itself stays available through =M-x agent-shell=.
 (defvar claude-code-ide-prevent-reflow-glitch)
 (defvar vterm-mode-hook)
 (declare-function vterm-send-key "vterm")
+(declare-function vterm-send-string "vterm")
 (declare-function claude-code-ide-emacs-tools-setup "claude-code-ide-emacs-tools")
 (declare-function claude-code-ide--display-buffer-in-side-window "claude-code-ide")
 (declare-function claude-code-ide--get-working-directory "claude-code-ide")
@@ -357,6 +358,34 @@ hook checks it when it runs.
     (azos/claude/stop-speech)))
 
 (add-hook 'pre-command-hook #'azos/claude/--stop-speech-on-space)
+#+end_src
+
+* Dictation
+
+=azos/claude/dictate= taps Space in the visible (else most recently used)
+Claude Code session, which starts or stops dictation when the CLI's voice
+mode is =tap= (=azos.claude.voice.enable= sets that up). Hardware buttons
+call it: the exwm suite's =azos.headphones.claudeDictation= binds a media
+key to it, falling back to the key's previous command when no session is
+open, and has a headset's hang-up stop the recording.
+
+#+begin_src emacs-lisp
+(defun azos/claude/dictate (&optional fallback)
+  "Tap Space in the visible, else most recent, Claude Code session.
+That starts or stops dictation in voice mode tap, and silences a spoken
+reply. Without a session, call FALLBACK if given."
+  (interactive)
+  (let* ((sessions (azos/claude/buffers))
+         (session-p (lambda (buffer) (memq buffer sessions)))
+         (buffer (or (seq-find session-p
+                               (mapcar #'window-buffer
+                                       (window-list-1 nil 'nomini 'visible)))
+                     (seq-find session-p (buffer-list)))))
+    (cond (buffer
+           (azos/claude/stop-speech)
+           (with-current-buffer buffer
+             (vterm-send-string " ")))
+          (fallback (funcall fallback)))))
 #+end_src
 
 * Provide
