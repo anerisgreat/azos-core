@@ -14,7 +14,6 @@
   config.flake.modules.nixos.desktop = {
     lib,
     config,
-    options,
     pkgs,
     ...
   }: {
@@ -22,25 +21,20 @@
       default = true;
       type = lib.types.bool;
     };
-    config = lib.mkIf config.azos.hardware-audio.enable ({
-        services = {
-          pipewire = {
+    config = lib.mkIf config.azos.hardware-audio.enable {
+      services = {
+        pipewire = {
+          enable = true;
+          audio.enable = true;
+          pulse.enable = true;
+          alsa = {
             enable = true;
-            audio.enable = true;
-            pulse.enable = true;
-            alsa = {
-              enable = true;
-              support32Bit = true;
-            };
-            jack.enable = true;
+            support32Bit = true;
           };
+          jack.enable = true;
         };
-        environment.systemPackages = with pkgs; [pavucontrol];
-      }
-      # musnix (realtime audio tuning) is only there if the host flake imports
-      # inputs.musnix.nixosModules.musnix; azos-core doesn't depend on it.
-      // lib.optionalAttrs (options ? musnix) {
-        musnix.enable = true;
-      });
+      };
+      environment.systemPackages = with pkgs; [pavucontrol];
+    };
   };
 }
