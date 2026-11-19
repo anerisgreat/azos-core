@@ -19,10 +19,21 @@ renders in its own async process, and results are cached by content hash:
 toggling an unchanged buffer back on is instant. The white background keeps
 diagrams readable on a dark theme.
 
+=mmdc= puts node labels in HTML =<foreignObject>= elements by default, which
+librsvg (Emacs' SVG renderer) skips, so every node came out blank. The
+config file (written by Nix, see =_pkg.nix=) makes it draw plain SVG text,
+wrapped wide enough to keep snake_case names on one line, and makes edge
+label backgrounds opaque (the theme's 0.5 lets arrows show through the
+text). The config's store path is part of the cache key, so a config change
+doesn't keep showing old renders.
+
 #+begin_src emacs-lisp
 (defvar azos/mermaid-cache-dir
   (expand-file-name "azos-mermaid/" temporary-file-directory)
   "Where rendered Mermaid diagrams are kept, named by content hash.")
+
+(defvar azos/mermaid-config "@mermaidConfig@"
+  "mmdc configuration file (-c).")
 
 (defvar azos/mermaid-block-regexp
   "^[ \t]*\\(```+\\|~~~+\\)[ \t]*mermaid[^\n]*\n\\(\\(?:.*\n\\)*?\\)[ \t]*\\1[ \t]*$"
@@ -49,7 +60,7 @@ diagrams readable on a dark theme.
 (defun azos/mermaid--render (ov source)
   "Render SOURCE with mmdc and show it over OV."
   (make-directory azos/mermaid-cache-dir t)
-  (let* ((base (expand-file-name (secure-hash 'sha1 source) azos/mermaid-cache-dir))
+  (let* ((base (expand-file-name (secure-hash 'sha1 (concat azos/mermaid-config "\n" source)) azos/mermaid-cache-dir))
          (in (concat base ".mmd"))
          (out (concat base ".svg")))
     (if (file-exists-p out)
@@ -59,7 +70,8 @@ diagrams readable on a dark theme.
         (make-process
          :name "azos-mermaid"
          :buffer log
-         :command (list "mmdc" "--quiet" "-b" "white" "-i" in "-o" out)
+         :command (list "mmdc" "--quiet" "-b" "white"
+                        "-c" azos/mermaid-config "-i" in "-o" out)
          :sentinel
          (lambda (proc _event)
            (unless (process-live-p proc)
