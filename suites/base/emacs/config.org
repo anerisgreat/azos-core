@@ -355,6 +355,10 @@ Disabling the toolbar, the splash-screen, the menu-bar and the scroll-bar
 
 *** Background color
 
+The Claude Code theme =suites/editor/claude/theme/emacs.json= copies this
+background and the stock Emacs face colours on it (diff, region, link): if
+they change here, change it to match.
+
 #+begin_src emacs-lisp
 (add-to-list 'default-frame-alist '(background-color . "LightYellow"))
 #+end_src

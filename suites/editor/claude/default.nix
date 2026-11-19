@@ -34,6 +34,18 @@
           /voice. Only those keys are set; turning this off leaves them.
         '';
       };
+      theme.enable = lib.mkOption {
+        default = false;
+        example = true;
+        type = lib.types.bool;
+        description = ''
+          A Claude Code theme matching Emacs (the built-in light theme with
+          LightYellow and Emacs' diff, region and link colours), installed
+          as ~/.claude/themes/emacs.json and selected in settings.json.
+          Claude Code reloads ~/.claude/themes/ live, but only if the folder
+          existed when it started.
+        '';
+      };
       ide.enable = lib.mkOption {
         default = cfg.enable;
         defaultText = lib.literalExpression "config.azos.claude.enable";
@@ -62,6 +74,24 @@
           tmp=$(mktemp)
           ${pkgs.jq}/bin/jq '.voice.enabled = true | .voice.mode = "tap" | .voiceEnabled = true' \
             "$SETTINGS_JSON" > "$tmp" && mv "$tmp" "$SETTINGS_JSON"
+        '';
+      })
+
+      (lib.mkIf (cfg.enable && cfg.theme.enable) {
+        home.file.".claude/themes/emacs.json" = {
+          source = ./theme/emacs.json;
+          # Replaces a hand-written copy, if there is one.
+          force = true;
+        };
+
+        # settings.json is also written by Claude Code and other activation
+        # steps, so set just the key.
+        home.activation.claudeTheme = lib.hm.dag.entryAfter ["writeBoundary"] ''
+          SETTINGS_JSON="$HOME/.claude/settings.json"
+          [ -f "$SETTINGS_JSON" ] || echo '{}' > "$SETTINGS_JSON"
+          tmp=$(mktemp)
+          ${pkgs.jq}/bin/jq '.theme = "custom:emacs"' "$SETTINGS_JSON" > "$tmp" \
+            && mv "$tmp" "$SETTINGS_JSON"
         '';
       })
 

@@ -1,0 +1,33 @@
+{
+  "name": "Emacs (LightYellow)",
+  "base": "light",
+  "overrides": {
+    "text": "rgb(0,0,0)",
+    "userMessageBackground": "rgb(238,238,209)",
+    "userMessageBackgroundHover": "rgb(248,248,218)",
+    "composerSidebarBackground": "rgb(238,238,209)",
+    "selectionBg": "rgb(238,220,130)",
+    "bashMessageBackgroundColor": "rgb(240,248,255)",
+    "memoryBackgroundColor": "rgb(224,248,224)",
+    "diffAdded": "rgb(187,255,187)",
+    "diffRemoved": "rgb(255,204,204)",
+    "diffAddedDimmed": "rgb(238,255,238)",
+    "diffRemovedDimmed": "rgb(255,238,238)",
+    "diffAddedWord": "rgb(34,139,34)",
+    "diffRemovedWord": "rgb(205,0,0)",
+    "permission": "rgb(58,95,205)",
+    "suggestion": "rgb(58,95,205)",
+    "remember": "rgb(58,95,205)",
+    "claudeBlue_FOR_SYSTEM_SPINNER": "rgb(58,95,205)",
+    "ide": "rgb(58,95,205)",
+    "success": "rgb(34,139,34)",
+    "warning": "rgb(205,102,0)",
+    "error": "rgb(205,0,0)",
+    "inactive": "rgb(127,127,127)",
+    "subtle": "rgb(160,160,140)",
+    "promptBorder": "rgb(160,160,140)",
+    "skill": "rgb(160,32,240)",
+    "autoAccept": "rgb(160,32,240)",
+    "merged": "rgb(160,32,240)"
+  }
+}
