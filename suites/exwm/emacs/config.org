@@ -192,31 +192,36 @@ Set from Nix (azos.exwm.lockCommand) via ~/.emacs.d/extra/azos-exwm-host.el.")
 
 ** RANDR screen settings
 
-Enabling randr. Automatic mapping of randr screens to workspaces.
+When the screens change, =xlayoutdisplay= lays the connected outputs out
+side by side, and workspaces are mapped to monitors left to right by x
+offset: workspace 0 is the leftmost screen. It runs synchronously, so the
+monitors read afterwards are the new layout. =s-x= re-runs it by hand.
 
 #+begin_src emacs-lisp
-(defun azos/exwm/get-monitor-list ()
-    (mapcar (lambda (x) (match-string (string-match "^[A-Za-z]+-*[0-9]+-*[0-9]*" x) x))
-        (azos/re-seq "^[A-Za-z]+-*[0-9]+-*[0-9]* connected"
-                        (shell-command-to-string "xrandr"))))
-
-(defun azos/exwm/add-indexes (list)
-  (azos/exwm/add-indexes-i list 1)
-)
-
-(defun azos/exwm/add-indexes-i (list i)
-  (if list
-        (cons i (cons (car list) (azos/exwm/add-indexes-i (cdr list) (+ i 1))))
-        nil))
+(defun azos/exwm/--monitors-by-x ()
+  "Connected monitor names, sorted left to right."
+  (let (mons)
+    (with-temp-buffer
+      (call-process "xrandr" nil t nil "--listmonitors")
+      (goto-char (point-min))
+      (while (re-search-forward
+              "^ *[0-9]+: [+*]*\\([^ ]+\\) [0-9]+/[0-9]+x[0-9]+/[0-9]+\\+\\([0-9]+\\)\\+[0-9]+"
+              nil t)
+        (push (cons (string-to-number (match-string 2)) (match-string 1)) mons)))
+    (mapcar #'cdr (sort mons (lambda (a b) (< (car a) (car b)))))))
 
 (defun azos/exwm/update-randr-monitor-plist ()
+  "Lay out the displays, then map workspaces 0, 1, ... to monitors left to right."
   (interactive)
-    (progn
-        (start-process
-            "xlayoutdisplay" nil "xlayoutdisplay")
-        (setq exwm-randr-workspace-monitor-plist
-                (azos/exwm/add-indexes (azos/exwm/get-monitor-list)))
-        (exwm-randr-refresh)))
+  (apply #'call-process "xlayoutdisplay" nil nil nil
+         (mapcan (lambda (out) (list "-o" (car out)))
+                 (azos/exwm/--outputs-in-saved-order)))
+  (let ((i 0) plist)
+    (dolist (monitor (azos/exwm/--monitors-by-x))
+      (setq plist (append plist (list i monitor))
+            i (1+ i)))
+    (setq exwm-randr-workspace-monitor-plist plist))
+  (exwm-randr-refresh))
 
 (add-hook 'azos/exwm/load-hook (lambda () (progn
     (add-hook 'exwm-randr-screen-change-hook
@@ -224,6 +229,144 @@ Enabling randr. Automatic mapping of randr screens to workspaces.
 
     (define-key azos/global-minor-mode/keymap
         (kbd "s-x") 'azos/exwm/update-randr-monitor-plist))))
+#+end_src
+
+*** Persistent physical order
+
+Without =-o=, xlayoutdisplay lays outputs out in connector-name order, but a
+dock hands out DP-1/DP-2 in whichever order it enumerates them, so two
+identical monitors swap sides between plugs. Instead, a left-to-right list
+of monitor identities (EDID manufacturer, product and serial, bytes 8-15)
+is kept in =azos/exwm/monitor-order-file=, and the connected outputs are
+passed to xlayoutdisplay in that order. Monitors not in the file go after
+the known ones. =M-x azos/exwm/set-monitor-order= rewrites the order for
+the screens connected now (with two, it just swaps them) and saves it.
+
+#+begin_src emacs-lisp
+(defvar azos/exwm/monitor-order-file
+  (expand-file-name "azos/monitor-order" (or (getenv "XDG_CONFIG_HOME") "~/.config"))
+  "File listing monitor EDID ids left to right, one per line.")
+
+(defun azos/exwm/--connected-outputs ()
+  "Connected outputs as (NAME . EDID-ID), in xrandr order."
+  (let (outs)
+    (with-temp-buffer
+      (call-process "xrandr" nil t nil "--verbose")
+      (goto-char (point-min))
+      (while (re-search-forward "^\\([^ \t\n]+\\) connected" nil t)
+        (let ((name (match-string 1))
+              (end (save-excursion
+                     (if (re-search-forward "^[^ \t\n]" nil t) (point) (point-max)))))
+          (push (cons name
+                      (when (re-search-forward
+                             "EDID:[ \t]*\n[ \t]*\\([0-9a-f]\\{32\\}\\)" end t)
+                        (substring (match-string 1) 16 32)))
+                outs))))
+    (nreverse outs)))
+
+(defun azos/exwm/--saved-monitor-order ()
+  (when (file-readable-p azos/exwm/monitor-order-file)
+    (with-temp-buffer
+      (insert-file-contents azos/exwm/monitor-order-file)
+      (split-string (buffer-string) "\n" t "[ \t]+"))))
+
+(defun azos/exwm/--outputs-in-saved-order ()
+  "Connected outputs sorted by `azos/exwm/monitor-order-file'."
+  (let ((order (azos/exwm/--saved-monitor-order))
+        ranked)
+    (dolist (out (azos/exwm/--connected-outputs))
+      (push (cons (or (seq-position order (cdr out)) (length order)) out)
+            ranked))
+    ;; `sort' is stable: unknown monitors keep xrandr's order.
+    (mapcar #'cdr (sort (nreverse ranked)
+                        (lambda (a b) (< (car a) (car b)))))))
+
+(defun azos/exwm/set-monitor-order ()
+  "Choose the left-to-right order of the connected monitors and save it.
+With two monitors, swap them. The order is remembered per monitor, so it
+holds whichever ports they are plugged into and whatever else is connected."
+  (interactive)
+  (let* ((outs (azos/exwm/--outputs-in-saved-order))
+         (new
+          (if (= (length outs) 2)
+              (reverse outs)
+            (let ((left outs) picked)
+              (while (cdr left)
+                (let ((out (assoc (completing-read
+                                   (format "Monitor %d from the left: "
+                                           (1+ (length picked)))
+                                   (mapcar #'car left) nil t)
+                                  left)))
+                  (push out picked)
+                  (setq left (delq out left))))
+              (append (nreverse picked) left))))
+         (ids (delq nil (mapcar #'cdr new)))
+         (saved (azos/exwm/--saved-monitor-order))
+         (old (seq-difference saved ids))
+         ;; Put the new run where its first member used to be, so screens
+         ;; that aren't connected now keep their place.
+         (pos 0))
+    (while (and (< pos (length saved)) (not (member (nth pos saved) ids)))
+      (setq pos (1+ pos)))
+    (setq pos (min pos (length old)))
+    (make-directory (file-name-directory azos/exwm/monitor-order-file) t)
+    (with-temp-file azos/exwm/monitor-order-file
+      (insert (string-join (append (seq-take old pos) ids (seq-drop old pos)) "\n")
+              "\n"))
+    (azos/exwm/update-randr-monitor-plist)
+    (message "Monitors, left to right: %s" (mapconcat #'car new " "))))
+#+end_src
+
+*** Re-layout on returning to the session
+
+Monitors unplugged while X is not the active VT (e.g. undocking at a text
+tty) never trigger a layout: X comes back still laid out on the missing
+outputs with the laptop panel off, so its VT is black. Watch logind for
+this session turning active again and re-run the layout then. The delay
+gives X time to take back the display before xlayoutdisplay runs. Hosts
+without logind just skip it.
+
+#+begin_src emacs-lisp
+(require 'dbus)
+
+(defun azos/exwm/--session-properties-changed (_interface changed &rest _)
+  (when (and (car (cadr (assoc "Active" changed)))
+             (bound-and-true-p exwm--connection))
+    (run-with-timer 1 nil #'azos/exwm/update-randr-monitor-plist)))
+
+(ignore-errors
+  (dbus-register-signal
+   :system "org.freedesktop.login1"
+   (dbus-call-method :system "org.freedesktop.login1" "/org/freedesktop/login1"
+                     "org.freedesktop.login1.Manager" "GetSessionByPID"
+                     :uint32 (emacs-pid))
+   dbus-interface-properties "PropertiesChanged"
+   #'azos/exwm/--session-properties-changed))
+#+end_src
+
+** Moving tabs between workspaces
+
+Each workspace is a frame, and tabs live per frame. =M-t s= moves the
+current tab between workspaces 0 and 1; =C-u M-t s= asks for the workspace
+number.
+
+#+begin_src emacs-lisp
+(defun azos/exwm/move-tab-to-workspace (&optional target)
+  "Move the current tab to another EXWM workspace and switch to it.
+Without TARGET, go to workspace 1 from workspace 0, otherwise to 0.
+Interactively, a prefix argument prompts for the workspace number."
+  (interactive
+   (list (when current-prefix-arg
+           (read-number "Move tab to workspace: "))))
+  (let* ((target (or target (if (= exwm-workspace-current-index 0) 1 0)))
+         (frame (exwm-workspace--workspace-from-frame-or-index target)))
+    (when (eq frame (selected-frame))
+      (user-error "Tab is already on workspace %d" target))
+    (tab-bar-move-tab-to-frame nil (selected-frame) nil frame)
+    (exwm-workspace-switch target)))
+
+(define-key azos/global-minor-mode/keymap
+  (kbd "M-t s") #'azos/exwm/move-tab-to-workspace)
 #+end_src
 
 ** Modeline indicator
