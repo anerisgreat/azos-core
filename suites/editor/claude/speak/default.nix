@@ -66,14 +66,24 @@
       ${builtins.readFile style}
     '';
   in {
-    options.azos.claude.speak.enable = lib.mkOption {
-      default = false;
-      example = true;
-      type = lib.types.bool;
-      description = ''
-        The /speak skill: spoken Claude Code replies through Kokoro, run
-        locally on the CPU. Pulls in PyTorch and the ~330 MB model.
-      '';
+    options.azos.claude.speak = {
+      enable = lib.mkOption {
+        default = false;
+        example = true;
+        type = lib.types.bool;
+        description = ''
+          The /speak skill: spoken Claude Code replies through Kokoro, run
+          locally on the CPU. Pulls in PyTorch and the ~330 MB model. In
+          Emacs, typing Space into a Claude Code session (which starts
+          dictation in voice mode tap) silences the reply being spoken.
+        '';
+      };
+      speed = lib.mkOption {
+        default = 1.25;
+        example = 1.0;
+        type = lib.types.float;
+        description = "Speaking rate; 1.0 is Kokoro's normal speed.";
+      };
     };
 
     config = lib.mkIf config.azos.claude.enable (lib.mkMerge [
@@ -84,7 +94,7 @@
         systemd.user.services.azos-speak = {
           Unit.Description = "Kokoro text-to-speech for spoken Claude Code replies";
           Service = {
-            ExecStart = "${python}/bin/python3 -I ${./server.py} ${model} %t/azos-speak/server.sock ${pkgs.pipewire}/bin/pw-play";
+            ExecStart = "${python}/bin/python3 -I ${./server.py} ${model} %t/azos-speak/server.sock ${pkgs.pipewire}/bin/pw-play ${toString cfg.speed}";
             Environment = ["HF_HUB_OFFLINE=1"];
             Restart = "on-failure";
           };

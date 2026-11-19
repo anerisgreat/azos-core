@@ -1,6 +1,6 @@
 """Keep Kokoro loaded and speak text sent over a unix socket.
 
-Usage: server.py MODEL_DIR SOCKET PW_PLAY
+Usage: server.py MODEL_DIR SOCKET PW_PLAY SPEED
 
 Each connection sends one JSON line: {"cmd": "say", "text": ...} replaces
 whatever is playing, {"cmd": "stop"} silences it. Text is generated and
@@ -22,7 +22,8 @@ import time
 import soundfile
 from kokoro import KModel, KPipeline
 
-MODEL_DIR, SOCKET_PATH, PW_PLAY = sys.argv[1:4]
+MODEL_DIR, SOCKET_PATH, PW_PLAY, SPEED = sys.argv[1:5]
+SPEED = float(SPEED)
 IDLE_SECONDS = int(os.environ.get("AZOS_SPEAK_IDLE_SECONDS", "1800"))
 REPO = "hexgrad/Kokoro-82M"
 VOICE = os.path.join(MODEL_DIR, "af_heart.pt")
@@ -34,7 +35,7 @@ model = KModel(repo_id=REPO,
                config=os.path.join(MODEL_DIR, "config.json"),
                model=os.path.join(MODEL_DIR, "kokoro-v1_0.pth")).eval()
 pipeline = KPipeline(lang_code="a", repo_id=REPO, model=model)
-for _ in pipeline("Ready.", voice=VOICE):
+for _ in pipeline("Ready.", voice=VOICE, speed=SPEED):
     pass
 
 lock = threading.Lock()
@@ -61,7 +62,8 @@ def current(gen):
 def produce(text, gen, chunks, workdir):
     try:
         with infer_lock:
-            for result in pipeline(text, voice=VOICE, split_pattern=SPLIT):
+            for result in pipeline(text, voice=VOICE, speed=SPEED,
+                                   split_pattern=SPLIT):
                 if not current(gen):
                     break
                 if result.audio is None:
